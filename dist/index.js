@@ -86,10 +86,10 @@ function FaFilm (props) {
 
 const SETTINGS_KEY = "trailerhero.settings.v1";
 const DEFAULT_SETTINGS = {
-    settingsVersion: 5,
+    settingsVersion: 6,
     enabled: true,
     delaySeconds: 3,
-    opacity: 0.92,
+    opacity: 1,
     qualityHeight: 2160,
     blockedApps: [],
     homeHeroEnabled: true,
@@ -129,9 +129,7 @@ function parseSettings() {
             settingsVersion: DEFAULT_SETTINGS.settingsVersion,
             enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : DEFAULT_SETTINGS.enabled,
             delaySeconds: DEFAULT_SETTINGS.delaySeconds,
-            opacity: OPACITY_OPTIONS.includes(parsed.opacity ?? 0)
-                ? parsed.opacity ?? DEFAULT_SETTINGS.opacity
-                : DEFAULT_SETTINGS.opacity,
+            opacity: 1,
             qualityHeight: parsedVersion >= 4 && QUALITY_OPTIONS.includes(parsed.qualityHeight ?? 0)
                 ? parsed.qualityHeight ?? DEFAULT_SETTINGS.qualityHeight
                 : DEFAULT_SETTINGS.qualityHeight,
@@ -1099,7 +1097,7 @@ function isRuntimeSnapshot(value) {
 }
 function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const runtimeKey = "__trailerHeroRuntime";
-    const runtimeVersion = "0.1.6.1";
+    const runtimeVersion = "0.1.7.0";
     const styleId = "trailerhero-style";
     const videoClass = "trailerhero-video";
     const youtubeClass = "trailerhero-youtube";
@@ -1823,6 +1821,10 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
         animation: none !important;
       }
 
+      .${targetClass}.${readyClass} {
+        background-color: #000 !important;
+      }
+
       .${videoClass} {
         position: absolute !important;
         inset: 0 !important;
@@ -1838,7 +1840,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
       }
 
       .${videoClass}.${visibleClass} {
-        opacity: ${settings.opacity} !important;
+        opacity: 1 !important;
         transform: scale(1.04) !important;
       }
 
@@ -1856,7 +1858,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
       }
 
       .${videoClass}.${youtubeClass}.${visibleClass} {
-        opacity: ${settings.opacity} !important;
+        opacity: 1 !important;
         transform: translateY(-50%) scale(1.06) !important;
       }
 
@@ -2591,7 +2593,12 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 const assetText = getElementAssetText(element);
                 const lower = assetText.toLowerCase();
                 const copyAppId = extractAppIdFromText(assetText);
-                if ((!copyAppId && !lower.includes("library_hero") && !lower.includes("_hero")) || copyAppId === appId) {
+                if (!copyAppId && !lower.includes("library_hero") && !lower.includes("_hero")) {
+                    continue;
+                }
+                const protectsActiveHost = Boolean(this.currentHost && (element === this.currentHost || element.contains(this.currentHost)));
+                const protectsActiveTarget = Boolean(this.currentTarget && (element === this.currentTarget || element.contains(this.currentTarget)));
+                if (protectsActiveHost || protectsActiveTarget) {
                     continue;
                 }
                 const rect = element.getBoundingClientRect();
