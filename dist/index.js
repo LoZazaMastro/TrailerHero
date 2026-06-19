@@ -86,25 +86,27 @@ function FaFilm (props) {
 
 const SETTINGS_KEY = "trailerhero.settings.v1";
 const DEFAULT_SETTINGS = {
-    settingsVersion: 6,
+    settingsVersion: 9,
     enabled: true,
     delaySeconds: 3,
     opacity: 1,
     qualityHeight: 2160,
     blockedApps: [],
-    homeHeroEnabled: true,
+    homeHeroEnabled: false,
     logoAssistEnabled: true,
     stopOnLaunchEnabled: true,
     crtLowResEnabled: true,
     youtubeEnabled: true,
     youtubeAutoSearch: true,
+    youtubePlaybackMode: "direct",
     preferredSources: {},
     steamAppOverrides: {},
     steamMovieOverrides: {},
     trimStartOverrides: {},
     trimEndOverrides: {},
     crtOverrides: {},
-    youtubeVideos: {}
+    youtubeVideos: {},
+    youtubeQueries: {}
 };
 const DEFAULT_TRIM_START_SECONDS = 4;
 const DEFAULT_TRIM_END_SECONDS = 5;
@@ -117,6 +119,8 @@ const RUNTIME_MISSING_SCRIPT = "window.__trailerHeroRuntime?.snapshot?.() ?? { s
 const FORCE_SCAN_SCRIPT = "window.__trailerHeroRuntime?.forceScan?.() ?? { status: 'TrailerHero runtime missing', runtimeMissing: true }";
 const evalInBigPicture = callable("eval_in_big_picture");
 const searchYouTubeTrailer = callable("search_youtube_trailer");
+const searchYouTubeVideos = callable("search_youtube_videos");
+const resolveYouTubeStreams = callable("resolve_youtube_streams");
 function parseSettings() {
     try {
         const raw = localStorage.getItem(SETTINGS_KEY);
@@ -148,8 +152,13 @@ function parseSettings() {
             crtLowResEnabled: parsedVersion >= 2 && typeof parsed.crtLowResEnabled === "boolean"
                 ? parsed.crtLowResEnabled
                 : DEFAULT_SETTINGS.crtLowResEnabled,
-            youtubeEnabled: DEFAULT_SETTINGS.youtubeEnabled,
-            youtubeAutoSearch: DEFAULT_SETTINGS.youtubeAutoSearch,
+            youtubeEnabled: typeof parsed.youtubeEnabled === "boolean"
+                ? parsed.youtubeEnabled
+                : DEFAULT_SETTINGS.youtubeEnabled,
+            youtubeAutoSearch: typeof parsed.youtubeAutoSearch === "boolean"
+                ? parsed.youtubeAutoSearch
+                : DEFAULT_SETTINGS.youtubeAutoSearch,
+            youtubePlaybackMode: DEFAULT_SETTINGS.youtubePlaybackMode,
             preferredSources: parsed.preferredSources && typeof parsed.preferredSources === "object"
                 ? Object.fromEntries(Object.entries(parsed.preferredSources)
                     .filter(([appid, source]) => (/^\d+$/.test(appid) &&
@@ -179,6 +188,10 @@ function parseSettings() {
             youtubeVideos: parsed.youtubeVideos && typeof parsed.youtubeVideos === "object"
                 ? Object.fromEntries(Object.entries(parsed.youtubeVideos)
                     .filter(([appid, videoId]) => /^\d+$/.test(appid) && typeof videoId === "string"))
+                : {},
+            youtubeQueries: parsed.youtubeQueries && typeof parsed.youtubeQueries === "object"
+                ? Object.fromEntries(Object.entries(parsed.youtubeQueries)
+                    .filter(([appid, query]) => /^\d+$/.test(appid) && typeof query === "string"))
                 : {}
         };
     }
@@ -211,6 +224,12 @@ const TRANSLATIONS = {
         game: "Game: {title}",
         heroHomeDisabled: "Home hero disabled",
         homeHero: "Enable on home",
+        homeExperimentalDisclaimer: "Home page trailers are still experimental and may break when Steam changes the library UI.",
+        youtubeGlobal: "Enable YouTube videos",
+        youtubeSearchQuery: "YouTube search query",
+        searchYouTube: "Search YouTube",
+        youtubeResults: "YouTube results",
+        useSelectedYouTubeResult: "Use selected YouTube result",
         invalidSteamAppId: "Invalid Steam AppID",
         invalidTrims: "Valid trims: 0-60 seconds",
         invalidYouTubeLink: "Invalid YouTube link",
@@ -220,6 +239,7 @@ const TRANSLATIONS = {
         stopOnLaunch: "Stop trailer on Play",
         stoppedForLaunch: "Trailer stopped for launch",
         mediaSourceUnavailable: "MediaSource is not available",
+        resolvingYouTubeDirect: "Resolving direct YouTube stream",
         noGameRecognized: "No game recognized",
         noReadableYouTubeResults: "No readable YouTube results",
         noSteamTrailer: "No Steam trailer found",
@@ -256,11 +276,17 @@ const TRANSLATIONS = {
         youtubeAutoNoTrailer: "YouTube auto: no trailer found",
         youtubeAutoSearch: "Auto YouTube search",
         youtubeFallback: "YouTube fallback",
+        youtubeDirectUnavailable: "Direct YouTube stream unavailable; using iframe fallback",
         youtubeForGame: "Custom YouTube link",
         youtubeSearchError: "YouTube search error",
         youtubeTrailer: "YouTube trailer",
         youtubeTrailerActive: "YouTube trailer active",
-        youtubeQuality: "YouTube quality: {value}"
+        youtubeQuality: "YouTube quality: {value}",
+        youtubeBulkReassign: "Reassign YouTube links for all non-Steam games",
+        youtubeBulkConfirm: "sei sicuro?",
+        youtubeBulkNoGames: "No non-Steam games found.",
+        youtubeBulkProgress: "Reassigning YouTube links {current}/{total}: {title}",
+        youtubeBulkDone: "YouTube reassigned: {assigned}/{total}. Failed: {failed}"
     },
     it: {
         active: "Attivo",
@@ -283,6 +309,12 @@ const TRANSLATIONS = {
         game: "Gioco: {title}",
         heroHomeDisabled: "Hero home disattivata",
         homeHero: "Attiva in home",
+        homeExperimentalDisclaimer: "La funzionalita nella home page e ancora sperimentale e puo rompersi quando Steam cambia la UI della libreria.",
+        youtubeGlobal: "Abilita video YouTube",
+        youtubeSearchQuery: "Query ricerca YouTube",
+        searchYouTube: "Cerca su YouTube",
+        youtubeResults: "Risultati YouTube",
+        useSelectedYouTubeResult: "Usa risultato YouTube selezionato",
         invalidSteamAppId: "Steam AppID non valido",
         invalidTrims: "Tagli validi: 0-60 secondi",
         invalidYouTubeLink: "Link YouTube non valido",
@@ -292,6 +324,7 @@ const TRANSLATIONS = {
         stopOnLaunch: "Ferma su Gioca",
         stoppedForLaunch: "Trailer fermato per l'avvio",
         mediaSourceUnavailable: "MediaSource non disponibile",
+        resolvingYouTubeDirect: "Risolvo stream YouTube diretto",
         noGameRecognized: "Nessun gioco riconosciuto",
         noReadableYouTubeResults: "Nessun risultato YouTube leggibile",
         noSteamTrailer: "Nessun trailer Steam trovato",
@@ -328,11 +361,17 @@ const TRANSLATIONS = {
         youtubeAutoNoTrailer: "YouTube auto: nessun trailer trovato",
         youtubeAutoSearch: "Ricerca YouTube auto",
         youtubeFallback: "YouTube fallback",
+        youtubeDirectUnavailable: "Stream YouTube diretto non disponibile; uso fallback iframe",
         youtubeForGame: "Link YouTube personalizzato",
         youtubeSearchError: "Errore ricerca YouTube",
         youtubeTrailer: "YouTube trailer",
         youtubeTrailerActive: "Trailer YouTube attivo",
-        youtubeQuality: "Qualita YouTube: {value}"
+        youtubeQuality: "Qualita YouTube: {value}",
+        youtubeBulkReassign: "Riassegna link YouTube a tutti i giochi non-Steam",
+        youtubeBulkConfirm: "sei sicuro?",
+        youtubeBulkNoGames: "Nessun gioco non-Steam trovato.",
+        youtubeBulkProgress: "Riassegno link YouTube {current}/{total}: {title}",
+        youtubeBulkDone: "YouTube riassegnati: {assigned}/{total}. Falliti: {failed}"
     },
     fr: {
         active: "Activé",
@@ -1097,7 +1136,7 @@ function isRuntimeSnapshot(value) {
 }
 function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const runtimeKey = "__trailerHeroRuntime";
-    const runtimeVersion = "0.1.7.0";
+    const runtimeVersion = "0.1.20.0";
     const styleId = "trailerhero-style";
     const videoClass = "trailerhero-video";
     const youtubeClass = "trailerhero-youtube";
@@ -1485,13 +1524,26 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     }
     function detectGameTitle(appId) {
         const cleanTitle = (value) => {
-            let text = value
+            let text = String(value || "")
                 .replace(/\s+/g, " ")
-                .replace(/Nessun tempo di gioco/gi, "")
-                .replace(/Ne un tempo di gioco/gi, "")
+                .replace(/[®©]/g, "")
                 .trim();
             if (!text) {
                 return "";
+            }
+            const stripSteamUiPrefixes = () => {
+                const before = text;
+                text = text
+                    .replace(/^(?:play|launch|install|resume|update|stream|gioca|avvia|installa|riprendi|aggiorna|jouer|lancer|installer|reprendre|jugar|iniciar|instalar|reanudar|jogar|continuar|spielen|installieren|fortsetzen)\b\s*/i, "")
+                    .replace(/\b(?:ultimo avvio|ultimo lancio|last played|last launched|last launch|last run)\b\s*(?:oggi|ieri|today|yesterday|mai|never|[0-3]?\d(?:[\s/.-]+[a-zà-ÿ]+)?(?:[\s/.-]+\d{2,4})?)?/gi, " ")
+                    .replace(/\b(?:tempo di gioco|tempo giocato|play time|time played|playtime)\b\s*(?:nessun tempo di gioco|ne un tempo di gioco|no playtime|none|[\d.,]+\s*(?:secondi?|seconds?|sec|s|minuti?|minutes?|mins?|min|ore|hours?|hrs?|h))?/gi, " ")
+                    .replace(/\b(?:achievement|achievements|obiettivo|obiettivi|attivita|attività|activity|community|comunità|informazioni sul gioco|game info|i tuoi articoli|your stuff)\b/gi, " ")
+                    .replace(/\s+/g, " ")
+                    .trim();
+                return text !== before;
+            };
+            for (let pass = 0; pass < 4 && stripSteamUiPrefixes(); pass += 1) {
+                // Keep stripping only the repeated Steam UI metadata around the title.
             }
             for (let length = Math.floor(text.length / 2); length >= 3; length -= 1) {
                 const first = text.slice(0, length).trim();
@@ -1521,30 +1573,188 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             "attività",
             "controller",
             "achievements",
-            "obiettivi"
+            "obiettivi",
+            "ultimo avvio",
+            "tempo di gioco",
+            "visualizza notifiche",
+            "view notifications",
+            "notifications",
+            "notifiche",
+            "cerca",
+            "search",
+            "visualizza profilo",
+            "view profile",
+            "menu",
+            "seleziona",
+            "indietro",
+            "select",
+            "back"
         ]);
+        const isBadGameTitle = (value) => {
+            const text = cleanTitle(String(value || ""));
+            const lower = text.toLowerCase();
+            const uiPhraseHit = Array.from(blocked).some((phrase) => phrase.length >= 5 && (lower === phrase || lower.startsWith(`${phrase} `) || lower.includes(` ${phrase} `)));
+            return (!text ||
+                text.length < 2 ||
+                text.length > 90 ||
+                blocked.has(lower) ||
+                uiPhraseHit ||
+                /^\d{1,2}:\d{2}(?::\d{2})?$/.test(text) ||
+                /^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ore|min|mins?|minutes?|secondi?|seconds?)$/i.test(text) ||
+                /^(?:a|b|x|y|lb|rb|lt|rt|menu|steam|select|back|ok|yes|no)$/i.test(text));
+        };
+        const collectTitleCandidates = (source, candidates, depth = 0, seen = new Set()) => {
+            if (!source || depth > 1 || seen.has(source)) {
+                return;
+            }
+            seen.add(source);
+            const push = (value) => {
+                if (typeof value === "string") {
+                    candidates.push(value);
+                }
+            };
+            for (const key of [
+                "display_name",
+                "localized_name",
+                "name",
+                "title",
+                "m_strDisplayName",
+                "strDisplayName",
+                "m_strName",
+                "strName",
+                "m_displayName",
+                "displayName"
+            ]) {
+                try {
+                    push(source[key]);
+                }
+                catch {
+                    // Ignore Steam observable getter failures.
+                }
+            }
+            for (const getter of [
+                "GetDisplayName",
+                "GetName",
+                "GetStoreName",
+                "GetTitle"
+            ]) {
+                try {
+                    const fn = source[getter];
+                    if (typeof fn === "function") {
+                        push(fn.call(source));
+                    }
+                }
+                catch {
+                    // Ignore Steam internals.
+                }
+            }
+            for (const key of ["data", "app", "overview", "details", "m_data"]) {
+                try {
+                    const nested = source[key];
+                    if (nested && typeof nested === "object") {
+                        collectTitleCandidates(nested, candidates, depth + 1, seen);
+                    }
+                }
+                catch {
+                    // Ignore Steam internals.
+                }
+            }
+        };
+        const readSteamTitle = () => {
+            const candidates = [];
+            const addObject = (value) => collectTitleCandidates(value, candidates);
+            const windows = [];
+            const addWindow = (value) => {
+                if (!value || windows.includes(value)) {
+                    return;
+                }
+                windows.push(value);
+            };
+            try { addWindow(window); } catch { }
+            try { addWindow(globalThis); } catch { }
+            try { addWindow(window.top); } catch { }
+            try { addWindow(window.parent); } catch { }
+            try { addWindow(window.opener); } catch { }
+            try { addWindow(window.Router?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow); } catch { }
+            try { addWindow(globalThis.Router?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow); } catch { }
+            for (const steamWindow of windows) {
+                try {
+                    addObject(steamWindow.appStore?.GetAppOverviewByAppID?.(appId));
+                    addObject(steamWindow.appStore?.GetAppOverviewByGameID?.(appId));
+                }
+                catch {
+                    // Steam internals are best-effort.
+                }
+                try {
+                    addObject(steamWindow.appDetailsStore?.GetAppDetails?.(appId));
+                }
+                catch {
+                    // Steam internals are best-effort.
+                }
+                for (const maybeMap of [
+                    steamWindow.appStore?.m_mapAppOverview,
+                    steamWindow.appStore?.m_mapApps,
+                    steamWindow.appStore?.m_mapAppInfo,
+                    steamWindow.appDetailsStore?.m_mapAppDetails
+                ]) {
+                    try {
+                        if (maybeMap?.get) {
+                            addObject(maybeMap.get(Number(appId)) ?? maybeMap.get(String(appId)));
+                        }
+                    }
+                    catch {
+                        // Steam internals are best-effort.
+                    }
+                }
+                try {
+                    const allApps = steamWindow.appStore?.allApps;
+                    const iterable = Array.isArray(allApps)
+                        ? allApps
+                        : (allApps?.values ? Array.from(allApps.values()) : []);
+                    const match = iterable.find((app) => Number(app?.appid ?? app?.app_id ?? app?.unAppID ?? app?.nAppID ?? app?.m_unAppID) === Number(appId));
+                    addObject(match);
+                }
+                catch {
+                    // Steam internals are best-effort.
+                }
+            }
+            for (const candidate of candidates) {
+                const title = cleanTitle(candidate);
+                if (!isBadGameTitle(title)) {
+                    return title;
+                }
+            }
+            return "";
+        };
+        const steamTitle = readSteamTitle();
+        if (steamTitle) {
+            return steamTitle;
+        }
         const heroImages = Array.from(document.querySelectorAll(`img[src*="/${appId}/"], img[src*="/${appId}_hero"], img[src*="/customimages/${appId}"]`));
         const capsuleTitles = heroImages
             .filter((image) => !(image.getAttribute("src") ?? "").includes("_hero"))
             .map((image) => {
             const root = image.closest("[class*='Panel']") ?? image.parentElement;
             return cleanTitle(image.getAttribute("aria-label") ??
+                image.getAttribute("alt") ??
                 image.getAttribute("title") ??
                 root?.innerText ??
                 root?.textContent ??
                 "");
         })
-            .filter((text) => text.length >= 2 && text.length <= 70);
+            .filter((text) => text.length >= 2 && text.length <= 70 && !isBadGameTitle(text));
         if (capsuleTitles[0]) {
             return capsuleTitles[0];
         }
         const roots = heroImages
-            .map((image) => image.closest("[class*='Panel']") ?? image.parentElement)
+            .map((image) => image.closest("[class*='BasicUI']") ?? image.closest("[class*='Game']") ?? image.closest("[class*='Panel']") ?? image.parentElement)
             .filter((element) => Boolean(element));
-        const textElements = Array.from(document.querySelectorAll("h1, h2, h3, div, span"));
-        const candidates = [...roots.flatMap((root) => Array.from(root.querySelectorAll("h1, h2, h3, div, span"))), ...textElements]
+        const scopedElements = roots.flatMap((root) => Array.from(root.querySelectorAll("h1, h2, h3, img[alt], [aria-label], [title]")));
+        const candidates = scopedElements
+            .filter((element) => !element.closest("button, [role='button'], [class*='TopBar'], [class*='Header'], [class*='Notification'], [class*='Footer']"))
             .map((element) => {
-            const text = cleanTitle(element.innerText || element.textContent || "");
+            const tag = element.tagName?.toLowerCase?.() || "";
+            const text = cleanTitle((tag === "img" ? element.getAttribute("alt") : "") || element.getAttribute("aria-label") || element.getAttribute("title") || element.innerText || element.textContent || "");
             const rect = element.getBoundingClientRect();
             const style = getComputedStyle(element);
             const fontSize = Number.parseFloat(style.fontSize) || 0;
@@ -1552,21 +1762,19 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
         })
             .filter(({ text, rect }) => {
             const lower = text.toLowerCase();
-            return (text.length >= 2 &&
-                text.length <= 70 &&
-                !blocked.has(lower) &&
+            return (!isBadGameTitle(text) &&
                 !lower.includes("\n") &&
                 rect.width > 20 &&
                 rect.height > 8 &&
                 rect.bottom > 0 &&
-                rect.top < window.innerHeight * 0.65);
+                rect.top < window.innerHeight * 0.72);
         })
             .sort((left, right) => {
             const leftScore = left.fontSize * 2 - Math.abs(left.rect.top - 190) / 20;
             const rightScore = right.fontSize * 2 - Math.abs(right.rect.top - 190) / 20;
             return rightScore - leftScore;
         });
-        return candidates[0]?.text;
+        return candidates[0]?.text || "";
     }
     function getImageSource(image) {
         return image.currentSrc || image.src || image.getAttribute("src") || "";
@@ -1821,10 +2029,6 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
         animation: none !important;
       }
 
-      .${targetClass}.${readyClass} {
-        background-color: #000 !important;
-      }
-
       .${videoClass} {
         position: absolute !important;
         inset: 0 !important;
@@ -1840,7 +2044,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
       }
 
       .${videoClass}.${visibleClass} {
-        opacity: 1 !important;
+        opacity: ${settings.opacity} !important;
         transform: scale(1.04) !important;
       }
 
@@ -1858,7 +2062,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
       }
 
       .${videoClass}.${youtubeClass}.${visibleClass} {
-        opacity: 1 !important;
+        opacity: ${settings.opacity} !important;
         transform: translateY(-50%) scale(1.06) !important;
       }
 
@@ -2015,13 +2219,16 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 previousSettings.crtLowResEnabled !== settings.crtLowResEnabled ||
                 previousSettings.youtubeEnabled !== settings.youtubeEnabled ||
                 previousSettings.youtubeAutoSearch !== settings.youtubeAutoSearch ||
+                previousSettings.youtubePlaybackMode !== settings.youtubePlaybackMode ||
+                JSON.stringify(previousSettings.youtubeDirectStreams) !== JSON.stringify(settings.youtubeDirectStreams) ||
                 JSON.stringify(previousSettings.preferredSources) !== JSON.stringify(settings.preferredSources) ||
                 JSON.stringify(previousSettings.steamAppOverrides) !== JSON.stringify(settings.steamAppOverrides) ||
                 JSON.stringify(previousSettings.steamMovieOverrides) !== JSON.stringify(settings.steamMovieOverrides) ||
                 JSON.stringify(previousSettings.trimStartOverrides) !== JSON.stringify(settings.trimStartOverrides) ||
                 JSON.stringify(previousSettings.trimEndOverrides) !== JSON.stringify(settings.trimEndOverrides) ||
                 JSON.stringify(previousSettings.crtOverrides) !== JSON.stringify(settings.crtOverrides) ||
-                JSON.stringify(previousSettings.youtubeVideos) !== JSON.stringify(settings.youtubeVideos)) {
+                JSON.stringify(previousSettings.youtubeVideos) !== JSON.stringify(settings.youtubeVideos) ||
+                JSON.stringify(previousSettings.youtubeQueries) !== JSON.stringify(settings.youtubeQueries)) {
                 this.trailerCache.clear();
                 this.cleanupVideo(true);
             }
@@ -2041,6 +2248,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 trailerName: this.currentTrailerName,
                 gameTitle: this.currentGameTitle,
                 needsYouTubeSearch: this.needsYouTubeSearch,
+                needsYouTubeDirectResolve: this.needsYouTubeDirectResolve,
+                youtubeDirectResolveKey: this.youtubeDirectResolveKey,
+                youtubeVideoId: this.currentYouTubeVideoId,
                 preferredSource: this.preferredSource,
                 sourceAppId: this.currentSourceAppId,
                 selectedSteamMovieId: this.selectedSteamMovieId,
@@ -2165,6 +2375,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 this.steamMovies = [];
                 this.preferredSource = appId ? this.getPreferredSource(appId) : "auto";
                 this.needsYouTubeSearch = false;
+                this.needsYouTubeDirectResolve = false;
+                this.youtubeDirectResolveKey = undefined;
+                this.currentYouTubeVideoId = undefined;
                 this.cleanupVideo(true);
                 this.status = appId ? rt("statusHeroNotFound", { appId }) : rt("noGameRecognized");
                 return;
@@ -2178,6 +2391,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 this.currentTrailerName = undefined;
                 this.selectedSteamMovieId = undefined;
                 this.steamMovies = [];
+                this.needsYouTubeDirectResolve = false;
+                this.youtubeDirectResolveKey = undefined;
+                this.currentYouTubeVideoId = undefined;
                 this.cleanupVideo(true);
                 this.status = rt("statusAppBlocked", { appId });
                 return;
@@ -2192,6 +2408,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 this.pendingRequestToken === this.requestToken) {
                 return;
             }
+            this.needsYouTubeDirectResolve = false;
+            this.youtubeDirectResolveKey = undefined;
+            this.currentYouTubeVideoId = undefined;
             this.cleanupVideo();
             this.currentTarget = hero.element;
             this.status = rt("searchTrailerForApp", { appId });
@@ -2202,7 +2421,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 this.selectedSteamMovieId = undefined;
                 this.steamMovies = [];
                 this.needsYouTubeSearch = false;
-                this.attachYouTube(hero.element, appId, youtubeId, token);
+                this.attachYouTubeForMode(hero.element, appId, youtubeId, token);
                 return;
             }
             this.pendingAppId = appId;
@@ -2221,7 +2440,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 if (this.preferredSource !== "steam" && youtubeId) {
                     this.currentTrailerName = rt("youtubeTrailer");
                     this.needsYouTubeSearch = false;
-                    this.attachYouTube(hero.element, appId, youtubeId, token);
+                    this.attachYouTubeForMode(hero.element, appId, youtubeId, token);
                     return;
                 }
                 this.currentTrailerName = undefined;
@@ -2395,7 +2614,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.trailerCache.set(cacheKey, result);
             return result;
         }
-        attachVideo(target, appId, candidates, token) {
+        attachVideo(target, appId, candidates, token, options = {}) {
             const host = this.prepareHost(target);
             const video = document.createElement("video");
             video.className = videoClass;
@@ -2419,7 +2638,11 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 const source = candidates[candidateIndex];
                 if (!source) {
                     this.cleanupVideo();
-                    this.status = rt("steamTrailerNotPlayable");
+                    if (typeof options.onFailure === "function") {
+                        options.onFailure();
+                        return;
+                    }
+                    this.status = options.failureStatus ?? rt("steamTrailerNotPlayable");
                     return;
                 }
                 if (source.includes(".mpd")) {
@@ -2475,6 +2698,69 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.currentMediaAppId = appId;
             tryCandidate();
         }
+        attachYouTubeForMode(target, appId, videoId, token) {
+            this.currentYouTubeVideoId = videoId;
+            if (this.settings.youtubePlaybackMode === "direct") {
+                this.attachDirectYouTube(target, appId, videoId, token);
+                return;
+            }
+            this.attachYouTube(target, appId, videoId, token);
+        }
+        getYouTubeDirectKey(appId, videoId) {
+            return `${appId}:${videoId}:${this.settings.qualityHeight}`;
+        }
+        getYouTubeDirectEntry(appId, videoId) {
+            const key = this.getYouTubeDirectKey(appId, videoId);
+            const entry = this.settings.youtubeDirectStreams?.[key];
+            if (!entry || entry.videoId !== videoId) {
+                return undefined;
+            }
+            const createdAt = Number(entry.createdAt || 0);
+            if (createdAt && Date.now() - createdAt > 20 * 60 * 1000) {
+                return undefined;
+            }
+            return entry;
+        }
+        attachDirectYouTube(target, appId, videoId, token) {
+            const key = this.getYouTubeDirectKey(appId, videoId);
+            const entry = this.getYouTubeDirectEntry(appId, videoId);
+            if (entry?.failed) {
+                this.needsYouTubeDirectResolve = false;
+                this.youtubeDirectResolveKey = undefined;
+                this.status = entry.error || rt("youtubeDirectUnavailable");
+                this.attachYouTube(target, appId, videoId, token);
+                return;
+            }
+            const candidates = Array.isArray(entry?.candidates)
+                ? entry.candidates
+                    .map((candidate) => typeof candidate === "string" ? candidate : candidate?.url)
+                    .filter((url) => typeof url === "string" && url.startsWith("http"))
+                : [];
+            if (!candidates.length) {
+                this.needsYouTubeDirectResolve = true;
+                this.youtubeDirectResolveKey = key;
+                this.currentYouTubeVideoId = videoId;
+                this.pendingAppId = appId;
+                this.pendingTarget = target;
+                this.pendingRequestToken = token;
+                this.status = rt("resolvingYouTubeDirect");
+                return;
+            }
+            this.clearPendingRequest(token);
+            this.needsYouTubeDirectResolve = false;
+            this.youtubeDirectResolveKey = undefined;
+            this.status = rt("loadingYouTubeTrailer");
+            this.attachVideo(target, appId, candidates, token, {
+                failureStatus: rt("youtubeDirectUnavailable"),
+                onFailure: () => {
+                    if (token !== this.requestToken) {
+                        return;
+                    }
+                    this.status = rt("youtubeDirectUnavailable");
+                    this.attachYouTube(target, appId, videoId, token);
+                }
+            });
+        }
         attachYouTube(target, appId, videoId, token) {
             this.ensureYouTubePreconnect();
             const host = this.prepareHost(target);
@@ -2495,16 +2781,48 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 start: String(this.getTrimStart(appId)),
                 showinfo: "0",
                 iv_load_policy: "3",
+                enablejsapi: "1",
+                widget_referrer: window.location.href,
                 origin: window.location.origin
             });
             params.set("vq", youtubeQuality);
             frame.className = `${videoClass} ${youtubeClass}`;
             frame.src = `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
             frame.allow = "autoplay; encrypted-media; picture-in-picture";
+            frame.width = this.settings.qualityHeight >= 2160 ? "3840" : this.settings.qualityHeight >= 1080 ? "1920" : "1280";
+            frame.height = this.settings.qualityHeight >= 2160 ? "2160" : this.settings.qualityHeight >= 1080 ? "1080" : "720";
             frame.loading = "eager";
             frame.setAttribute("aria-hidden", "true");
             frame.setAttribute("frameborder", "0");
             frame.setAttribute("tabindex", "-1");
+            const requestQuality = () => {
+                if (token !== this.requestToken || !frame.contentWindow) {
+                    return;
+                }
+                const qualityRequests = this.settings.qualityHeight >= 2160
+                    ? ["highres", "hd2160", "hd1440", "hd1080"]
+                    : this.settings.qualityHeight >= 1080
+                        ? ["hd1080", "highres"]
+                        : [youtubeQuality];
+                for (const quality of qualityRequests) {
+                    for (const command of [
+                        { event: "command", func: "setPlaybackQuality", args: [quality] },
+                        { event: "command", func: "setPlaybackQualityRange", args: [quality, quality] }
+                    ]) {
+                        try {
+                            frame.contentWindow.postMessage(JSON.stringify(command), "*");
+                        }
+                        catch {
+                            // YouTube iframe may ignore quality commands before the player is ready.
+                        }
+                    }
+                }
+            };
+            const scheduleQualityRequests = () => {
+                for (const delay of [250, 750, 1500, 3000, 6000, 10000, 15000, 22000]) {
+                    window.setTimeout(requestQuality, delay);
+                }
+            };
             const showFrame = () => {
                 if (token !== this.requestToken || !frame.isConnected) {
                     return;
@@ -2519,6 +2837,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                         this.moveSteamLogoForTrailer(appId, token);
                         window.setTimeout(() => {
                             if (token === this.requestToken && frame.isConnected) {
+                                requestQuality();
                                 frame.blur();
                                 frame.classList.add(visibleClass);
                             }
@@ -2527,7 +2846,10 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                     }
                 }, this.settings.delaySeconds * 1000);
             };
-            frame.addEventListener("load", showFrame, { once: true });
+            frame.addEventListener("load", () => {
+                scheduleQualityRequests();
+                showFrame();
+            }, { once: true });
             host.classList.add(targetClass);
             host.insertBefore(frame, host.firstChild);
             this.currentFrame = frame;
@@ -3141,6 +3463,49 @@ function buildInstallScript(settings) {
     })()
   `;
 }
+
+function confirmYouTubeBulkReassign() {
+    return new Promise((resolve) => {
+        let finished = false;
+        let modal;
+        const finish = (value) => {
+            if (finished) {
+                return;
+            }
+            finished = true;
+            try {
+                modal?.Close?.();
+            }
+            catch {
+                // Ignore modal close errors.
+            }
+            resolve(value);
+        };
+        const content = SP_JSX.jsxs(DFL.ModalRoot, { closeModal: () => finish(false), children: [
+            SP_JSX.jsx("div", { style: { fontWeight: 700, fontSize: "1.1rem", marginBottom: "0.65rem" }, children: tr("youtubeBulkReassign") }),
+            SP_JSX.jsx("div", { style: { fontSize: "0.92rem", lineHeight: "1.35rem", opacity: 0.86, marginBottom: "1rem", whiteSpace: "normal" }, children: tr("youtubeBulkConfirm") }),
+            SP_JSX.jsxs(DFL.Focusable, { "flow-children": "row", noFocusRing: true, style: { display: "flex", gap: "0.5rem", justifyContent: "flex-end" }, children: [
+                SP_JSX.jsx(DFL.DialogButton, { focusable: true, onClick: () => finish(false), style: { minWidth: "7rem" }, children: "Cancel" }),
+                SP_JSX.jsx(DFL.DialogButton, { focusable: true, onClick: () => finish(true), style: { minWidth: "7rem" }, children: "OK" })
+            ] })
+        ] });
+        try {
+            modal = DFL.showModal?.(content, undefined, { strTitle: tr("youtubeBulkReassign") });
+        }
+        catch {
+            modal = undefined;
+        }
+        if (!modal) {
+            try {
+                resolve(Boolean(window.confirm?.(tr("youtubeBulkConfirm"))));
+            }
+            catch {
+                resolve(false);
+            }
+        }
+    });
+}
+
 class TrailerHeroController {
     constructor() {
         this.settings = parseSettings();
@@ -3154,6 +3519,9 @@ class TrailerHeroController {
         this.remoteStatusInFlight = false;
         this.youtubeSearchInFlight = new Set();
         this.youtubeSearchFailed = new Set();
+        this.youtubeDirectStreams = {};
+        this.youtubeDirectResolveInFlight = new Set();
+        this.bulkYouTubeInFlight = false;
     }
     mount() {
         this.installOrUpdate();
@@ -3180,12 +3548,16 @@ class TrailerHeroController {
             trailerName: this.trailerName,
             gameTitle: this.gameTitle,
             needsYouTubeSearch: this.needsYouTubeSearch,
+            needsYouTubeDirectResolve: this.needsYouTubeDirectResolve,
+            youtubeDirectResolveKey: this.youtubeDirectResolveKey,
+            youtubeVideoId: this.youtubeVideoId,
             preferredSource: this.preferredSource,
             sourceAppId: this.sourceAppId,
             selectedSteamMovieId: this.selectedSteamMovieId,
             steamMovies: this.steamMovies,
             trimStartSeconds: this.trimStartSeconds,
             trimEndSeconds: this.trimEndSeconds,
+            bulkYouTubeInFlight: this.bulkYouTubeInFlight,
             tab: this.workingTab
         };
     }
@@ -3387,6 +3759,20 @@ class TrailerHeroController {
         }
         this.updateSettings({ blockedApps: Array.from(blocked) });
     }
+    setYouTubeQueryForCurrent(value) {
+        if (!this.appId) {
+            return;
+        }
+        const query = String(value || "").trim();
+        const youtubeQueries = { ...this.settings.youtubeQueries };
+        if (query && query !== this.gameTitle) {
+            youtubeQueries[String(this.appId)] = query;
+        }
+        else {
+            delete youtubeQueries[String(this.appId)];
+        }
+        this.updateSettings({ youtubeQueries });
+    }
     setYouTubeForCurrent(value) {
         if (!this.appId) {
             return false;
@@ -3426,6 +3812,10 @@ class TrailerHeroController {
             .catch(() => this.installOrUpdate());
     }
     updateSettings(next) {
+        if ("youtubePlaybackMode" in next || "qualityHeight" in next || "youtubeVideos" in next) {
+            this.youtubeDirectStreams = {};
+            this.youtubeDirectResolveInFlight.clear();
+        }
         this.settings = {
             ...this.settings,
             ...next,
@@ -3434,6 +3824,12 @@ class TrailerHeroController {
         saveSettings(this.settings);
         this.emit();
         this.installOrUpdate();
+    }
+    getRuntimeSettings() {
+        return {
+            ...this.settings,
+            youtubeDirectStreams: this.youtubeDirectStreams
+        };
     }
     async installOrUpdate() {
         if (this.installInFlight) {
@@ -3444,7 +3840,7 @@ class TrailerHeroController {
         try {
             do {
                 this.pendingInstall = false;
-                const result = await this.runInSteamTab(buildInstallScript(this.settings));
+                const result = await this.runInSteamTab(buildInstallScript(this.getRuntimeSettings()));
                 this.applyRemoteResult(result);
             } while (this.pendingInstall);
         }
@@ -3512,6 +3908,9 @@ class TrailerHeroController {
         this.trailerName = result.trailerName;
         this.gameTitle = result.gameTitle;
         this.needsYouTubeSearch = result.needsYouTubeSearch;
+        this.needsYouTubeDirectResolve = result.needsYouTubeDirectResolve;
+        this.youtubeDirectResolveKey = result.youtubeDirectResolveKey;
+        this.youtubeVideoId = result.youtubeVideoId;
         this.preferredSource = result.preferredSource;
         this.sourceAppId = result.sourceAppId;
         this.selectedSteamMovieId = result.selectedSteamMovieId;
@@ -3520,6 +3919,76 @@ class TrailerHeroController {
         this.trimEndSeconds = result.trimEndSeconds ?? DEFAULT_TRIM_END_SECONDS;
         this.emit();
         this.maybeAutoSearchYouTube();
+        this.maybeResolveYouTubeDirect();
+    }
+    rememberYouTubeDirectEntry(key, entry) {
+        const entries = Object.entries({
+            ...this.youtubeDirectStreams,
+            [key]: entry
+        }).sort((left, right) => Number(right[1]?.createdAt || 0) - Number(left[1]?.createdAt || 0));
+        this.youtubeDirectStreams = Object.fromEntries(entries.slice(0, 6));
+    }
+    maybeResolveYouTubeDirect() {
+        if (!this.settings.youtubeEnabled ||
+            this.settings.youtubePlaybackMode !== "direct" ||
+            !this.needsYouTubeDirectResolve ||
+            !this.appId ||
+            !this.youtubeVideoId) {
+            return;
+        }
+        const key = this.youtubeDirectResolveKey || `${this.appId}:${this.youtubeVideoId}:${this.settings.qualityHeight}`;
+        const existing = this.youtubeDirectStreams[key];
+        if (existing && Date.now() - Number(existing.createdAt || 0) <= 20 * 60 * 1000) {
+            return;
+        }
+        if (existing) {
+            delete this.youtubeDirectStreams[key];
+        }
+        if (this.youtubeDirectResolveInFlight.has(key)) {
+            return;
+        }
+        const videoId = this.youtubeVideoId;
+        const qualityHeight = this.settings.qualityHeight;
+        this.youtubeDirectResolveInFlight.add(key);
+        this.status = tr("resolvingYouTubeDirect");
+        this.emit();
+        resolveYouTubeStreams(videoId, qualityHeight)
+            .then((result) => {
+            const candidates = Array.isArray(result?.candidates) ? result.candidates : [];
+            if (result?.ok && candidates.length) {
+                this.rememberYouTubeDirectEntry(key, {
+                    videoId,
+                    qualityHeight,
+                    createdAt: Date.now(),
+                    candidates
+                });
+            }
+            else {
+                this.rememberYouTubeDirectEntry(key, {
+                    videoId,
+                    qualityHeight,
+                    createdAt: Date.now(),
+                    failed: true,
+                    error: result?.error || tr("youtubeDirectUnavailable"),
+                    candidates: []
+                });
+            }
+            this.installOrUpdate();
+        })
+            .catch((error) => {
+            this.rememberYouTubeDirectEntry(key, {
+                videoId,
+                qualityHeight,
+                createdAt: Date.now(),
+                failed: true,
+                error: error instanceof Error ? error.message : tr("youtubeDirectUnavailable"),
+                candidates: []
+            });
+            this.installOrUpdate();
+        })
+            .finally(() => {
+            this.youtubeDirectResolveInFlight.delete(key);
+        });
     }
     applyRemoteResultOrInstall(result) {
         if (result?.runtimeMissing) {
@@ -3527,6 +3996,178 @@ class TrailerHeroController {
             return;
         }
         this.applyRemoteResult(result);
+    }
+    async collectNonSteamApps() {
+        const script = `(() => {
+          const apps = new Map();
+          const windows = [];
+          const addWindow = (value) => {
+            try {
+              if (value && !windows.includes(value)) windows.push(value);
+            } catch {}
+          };
+          try { addWindow(window); } catch {}
+          try { addWindow(globalThis); } catch {}
+          try { addWindow(window.top); } catch {}
+          try { addWindow(window.parent); } catch {}
+          try { addWindow(window.opener); } catch {}
+          try { addWindow(window.Router?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow); } catch {}
+          try { addWindow(globalThis.Router?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow); } catch {}
+          const cleanTitle = (value) => String(value ?? '')
+            .replace(/\s+/g, ' ')
+            .replace(/^(?:shortcut|non[- ]steam game)[:\s-]+/i, '')
+            .replace(/\s+\|\s+Steam.*$/i, '')
+            .trim();
+          const badTitle = (value) => {
+            const text = cleanTitle(value);
+            const lower = text.toLowerCase();
+            return (!text || /^App\s+\d+$/i.test(text) || /^\d{1,2}:\d{2}(?::\d{2})?$/.test(text) ||
+              ['play','gioca','visualizza notifiche','view notifications','notifications','notifiche','library','libreria'].includes(lower));
+          };
+          const readId = (entry) => {
+            const raw = entry?.appid ?? entry?.appId ?? entry?.appID ?? entry?.app_id ?? entry?.unAppID ?? entry?.nAppID ?? entry?.m_unAppID ?? entry?.id ?? entry?.gameid ?? entry?.gameId;
+            const value = Number(raw);
+            return Number.isFinite(value) && value > 0 ? value : 0;
+          };
+          const collectTitleCandidates = (entry, candidates, depth = 0, seen = new Set()) => {
+            if (!entry || depth > 2 || seen.has(entry)) return;
+            seen.add(entry);
+            const push = (value) => { if (typeof value === 'string') candidates.push(value); };
+            for (const key of ['display_name','localized_name','name','m_strName','title','strDisplayName','m_strDisplayName','m_strName','displayName','m_displayName']) {
+              try { push(entry[key]); } catch {}
+            }
+            for (const getter of ['GetDisplayName','GetName','GetStoreName','GetTitle']) {
+              try { const fn = entry[getter]; if (typeof fn === 'function') push(fn.call(entry)); } catch {}
+            }
+            for (const key of ['app','data','overview','details','m_data']) {
+              try { if (entry[key] && typeof entry[key] === 'object') collectTitleCandidates(entry[key], candidates, depth + 1, seen); } catch {}
+            }
+          };
+          const readTitle = (entry, appId) => {
+            const candidates = [];
+            collectTitleCandidates(entry, candidates);
+            for (const candidate of candidates) {
+              const text = cleanTitle(candidate);
+              if (!badTitle(text)) return text;
+            }
+            return '';
+          };
+          const isShortcut = (entry, appId) => {
+            try { if (entry?.BIsShortcut?.()) return true; } catch {}
+            try { if (entry?.BIsModOrShortcut?.()) return true; } catch {}
+            try { if (entry?.BIsExternalApp?.()) return true; } catch {}
+            const appTypeRaw = entry?.app_type ?? entry?.m_eAppType ?? entry?.unAppType ?? entry?.type ?? entry?.m_AppType ?? '';
+            const appType = Number(appTypeRaw);
+            const flags = [entry?.bIsShortcut, entry?.m_bIsShortcut, entry?.is_shortcut, entry?.isShortcut, entry?.bIsNonSteam, entry?.m_bIsNonSteam].some(Boolean);
+            const text = String(appTypeRaw ?? '').toLowerCase();
+            return Boolean(flags || appType === 1073741824 || appId >= 2147483648 || text.includes('shortcut') || text.includes('non-steam') || text.includes('non steam'));
+          };
+          const add = (entry) => {
+            if (!entry) return;
+            const appId = readId(entry);
+            if (!appId || !isShortcut(entry, appId)) return;
+            const title = readTitle(entry, appId);
+            if (!title || badTitle(title)) return;
+            apps.set(String(appId), { appId, title });
+          };
+          const addIterable = (value) => {
+            try {
+              if (!value) return;
+              if (Array.isArray(value)) { value.forEach(add); return; }
+              if (typeof value.values === 'function') { Array.from(value.values()).forEach(add); return; }
+              if (typeof value === 'object') { Object.values(value).forEach(add); }
+            } catch {}
+          };
+          const addStore = (store) => {
+            if (!store) return;
+            addIterable(store.allApps);
+            addIterable(store.m_mapAppOverview);
+            addIterable(store.m_mapApps);
+            addIterable(store.m_mapAppInfo);
+            addIterable(store.m_mapAppDetails);
+            addIterable(store.m_rgApps);
+            addIterable(store.apps);
+            try { addIterable(store.GetAllApps?.()); } catch {}
+            try { addIterable(store.GetApps?.()); } catch {}
+          };
+          for (const steamWindow of windows) {
+            try { addStore(steamWindow.appStore); } catch {}
+            try { addStore(steamWindow.SteamUIStore?.m_AppStore); } catch {}
+            try { addStore(steamWindow.appDetailsStore); } catch {}
+          }
+          return { ok: true, apps: Array.from(apps.values()).sort((a, b) => a.title.localeCompare(b.title)) };
+        })()`;
+        const result = await this.withTimeout(evalInBigPicture(script), 30000);
+        return Array.isArray(result?.apps) ? result.apps : [];
+    }
+
+    async reassignYouTubeForNonSteamGames() {
+        if (this.bulkYouTubeInFlight) {
+            return;
+        }
+        const confirmed = await confirmYouTubeBulkReassign();
+        if (!confirmed) {
+            return;
+        }
+        this.bulkYouTubeInFlight = true;
+        this.emit();
+        try {
+            const youtubeVideos = {};
+            const youtubeQueries = {};
+            const preferredSources = Object.fromEntries(Object.entries(this.settings.preferredSources)
+                .filter(([_key, source]) => source !== "youtube"));
+            // The reset must be saved immediately and globally, before any new search starts.
+            // This guarantees that old bad custom YouTube links, even ones saved under
+            // app IDs that Steam does not enumerate as shortcuts, cannot survive.
+            this.youtubeSearchFailed.clear();
+            this.youtubeSearchInFlight.clear();
+            this.updateSettings({ youtubeVideos, preferredSources, youtubeQueries });
+            const apps = await this.collectNonSteamApps();
+            if (!apps.length) {
+                this.status = tr("youtubeBulkNoGames");
+                this.emit();
+                return;
+            }
+            let assigned = 0;
+            let failed = 0;
+            for (let index = 0; index < apps.length; index += 1) {
+                const app = apps[index];
+                const key = String(app.appId);
+                this.status = tr("youtubeBulkProgress", { current: index + 1, total: apps.length, title: app.title });
+                this.emit();
+                try {
+                    const result = await searchYouTubeTrailer(app.title);
+                    if (result?.ok && result.videoId) {
+                        youtubeVideos[key] = result.videoId;
+                        preferredSources[key] = "youtube";
+                        delete youtubeQueries[key];
+                        assigned += 1;
+                    }
+                    else {
+                        delete youtubeVideos[key];
+                        delete youtubeQueries[key];
+                        if (preferredSources[key] === "youtube") {
+                            delete preferredSources[key];
+                        }
+                        failed += 1;
+                    }
+                }
+                catch {
+                    delete youtubeVideos[key];
+                    delete youtubeQueries[key];
+                    if (preferredSources[key] === "youtube") {
+                        delete preferredSources[key];
+                    }
+                    failed += 1;
+                }
+            }
+            this.status = tr("youtubeBulkDone", { assigned, total: apps.length, failed });
+            this.updateSettings({ youtubeVideos, preferredSources, youtubeQueries });
+        }
+        finally {
+            this.bulkYouTubeInFlight = false;
+            this.emit();
+        }
     }
     maybeAutoSearchYouTube() {
         if (!this.settings.youtubeEnabled ||
@@ -3576,15 +4217,40 @@ class TrailerHeroController {
     }
 }
 const controller = new TrailerHeroController();
+const isLikelyBadYouTubeQuery = (value) => {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    const lower = text.toLowerCase();
+    return (!text ||
+        /^\d{1,2}:\d{2}(?::\d{2})?$/.test(text) ||
+        /^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ore|min|mins?|minutes?|secondi?|seconds?)$/i.test(text) ||
+        /(?:visualizza notifiche|view notifications|notifications|notifiche|ultimo avvio|last played|tempo di gioco|play time|gioca ultimo|play last)/i.test(lower));
+};
 function Content() {
     const [snapshot, setSnapshot] = SP_REACT.useState(controller.getSnapshot());
     const [youtubeInput, setYoutubeInput] = SP_REACT.useState("");
+    const [youtubeQuery, setYoutubeQuery] = SP_REACT.useState("");
+    const [youtubeResults, setYoutubeResults] = SP_REACT.useState([]);
+    const [selectedYouTubeResultId, setSelectedYouTubeResultId] = SP_REACT.useState("");
+    const [youtubeSearchBusy, setYoutubeSearchBusy] = SP_REACT.useState(false);
+    const [youtubeSearchError, setYoutubeSearchError] = SP_REACT.useState("");
     const [trimStartInput, setTrimStartInput] = SP_REACT.useState(String(DEFAULT_TRIM_START_SECONDS));
     const [trimEndInput, setTrimEndInput] = SP_REACT.useState(String(DEFAULT_TRIM_END_SECONDS));
+    const previousYouTubeAppIdRef = SP_REACT.useRef(snapshot.appId);
     SP_REACT.useEffect(() => controller.subscribe(setSnapshot), []);
     SP_REACT.useEffect(() => {
+        const appChanged = previousYouTubeAppIdRef.current !== snapshot.appId;
+        previousYouTubeAppIdRef.current = snapshot.appId;
         setYoutubeInput(snapshot.appId ? snapshot.settings.youtubeVideos[String(snapshot.appId)] ?? "" : "");
-    }, [snapshot.appId, snapshot.settings.youtubeVideos]);
+        const savedQuery = snapshot.appId ? snapshot.settings.youtubeQueries?.[String(snapshot.appId)] ?? "" : "";
+        const safeSavedQuery = isLikelyBadYouTubeQuery(savedQuery) ? "" : savedQuery;
+        const safeGameTitle = isLikelyBadYouTubeQuery(snapshot.gameTitle) ? "" : snapshot.gameTitle;
+        setYoutubeQuery(safeSavedQuery || safeGameTitle || "");
+        if (appChanged) {
+            setYoutubeResults([]);
+            setSelectedYouTubeResultId("");
+            setYoutubeSearchError("");
+        }
+    }, [snapshot.appId, snapshot.gameTitle, snapshot.settings.youtubeVideos, snapshot.settings.youtubeQueries]);
     SP_REACT.useEffect(() => {
         setTrimStartInput(String(snapshot.trimStartSeconds ?? DEFAULT_TRIM_START_SECONDS));
         setTrimEndInput(String(snapshot.trimEndSeconds ?? DEFAULT_TRIM_END_SECONDS));
@@ -3596,29 +4262,115 @@ function Content() {
     const currentCrtPreference = snapshot.appId
         ? snapshot.settings.crtOverrides[String(snapshot.appId)] ?? "auto"
         : "auto";
-    return (SP_JSX.jsxs(DFL.PanelSection, { title: tr("title"), children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("active"), checked: snapshot.settings.enabled, onChange: (checked) => controller.setEnabled(checked) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("homeHero"), checked: snapshot.settings.homeHeroEnabled, onChange: (checked) => controller.setHomeHero(checked) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("logoAssist"), checked: snapshot.settings.logoAssistEnabled, onChange: (checked) => controller.setLogoAssist(checked) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx("div", { style: { fontSize: "11px", opacity: 0.62, lineHeight: 1.32 }, children: tr("logoAssistHelp") }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("stopOnLaunch"), checked: snapshot.settings.stopOnLaunchEnabled, onChange: (checked) => controller.setStopOnLaunch(checked) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("crtAutomatic"), checked: snapshot.settings.crtLowResEnabled, onChange: (checked) => controller.setLowResCrt(checked) }) }), snapshot.appId ? (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("disabledForCurrentGame"), checked: currentBlocked, onChange: (checked) => controller.setCurrentAppBlocked(checked) }) })) : null, SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx("div", { style: { fontSize: "12px", opacity: 0.82, lineHeight: 1.35 }, children: snapshot.status }) }), snapshot.appId ? (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => controller.cyclePreferredSource(), children: tr("source", { value: getSourceLabel(snapshot.preferredSource) }) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => {
-                                controller.cycleQuality();
-                                controller.refresh();
-                            }, children: tr("steamQuality", { quality: snapshot.settings.qualityHeight }) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => {
-                                controller.cycleCrtForCurrent();
-                                controller.refresh();
-                            }, children: tr("crtGame", { value: getCrtPreferenceLabel(currentCrtPreference) }) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: tr("trimStart"), value: trimStartInput, mustBeURL: false, onChange: (event) => setTrimStartInput(event.currentTarget.value) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: tr("trimEnd"), value: trimEndInput, mustBeURL: false, onChange: (event) => setTrimEndInput(event.currentTarget.value) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => {
-                                if (controller.setTrimForCurrent(trimStartInput, trimEndInput)) {
-                                    controller.refresh();
-                                }
-                            }, children: tr("saveTrims") }) }), snapshot.steamMovies?.length ? (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.DropdownItem, { label: tr("steamTrailer"), rgOptions: snapshot.steamMovies.map((movie, index) => ({
-                                data: movie.id,
-                                label: `${index + 1}. ${movie.name}`
-                            })), selectedOption: currentSteamMovie?.id ?? snapshot.selectedSteamMovieId ?? "", onChange: (option) => {
-                                if (typeof option.data === "string") {
-                                    controller.setSteamMovieForCurrent(option.data);
-                                    controller.refresh();
-                                }
-                            } }) })) : null, SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: tr("youtubeForGame"), value: youtubeInput, mustBeURL: false, onChange: (event) => setYoutubeInput(event.currentTarget.value) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => {
-                                if (controller.setYouTubeForCurrent(youtubeInput)) {
-                                    controller.refresh();
-                                }
-                            }, children: tr("saveYouTubeLink") }) })] })) : null] }));
+    const selectedYouTubeResult = youtubeResults.find((result) => result.id === selectedYouTubeResultId || result.videoId === selectedYouTubeResultId);
+    const formatYouTubeResultLabel = (result, index) => {
+        const title = result.title || result.videoId || result.id || "YouTube result";
+        const channel = result.channel || result.uploader || "";
+        const length = result.length || "";
+        const suffix = [channel, length].filter(Boolean).join(" · ");
+        return `${index + 1}. ${title}${suffix ? ` — ${suffix}` : ""}`;
+    };
+    const handleYouTubeSearch = async () => {
+        const query = (isLikelyBadYouTubeQuery(youtubeQuery) ? "" : youtubeQuery.trim()) || (isLikelyBadYouTubeQuery(snapshot.gameTitle) ? "" : snapshot.gameTitle) || "";
+        if (!query) {
+            setYoutubeSearchError(tr("emptyYouTubeQuery"));
+            return;
+        }
+        setYoutubeSearchBusy(true);
+        setYoutubeSearchError("");
+        try {
+            if (snapshot.appId) {
+                controller.setYouTubeQueryForCurrent(query);
+            }
+            const result = await searchYouTubeVideos(query, 10);
+            const results = Array.isArray(result?.results) ? result.results : [];
+            setYoutubeResults(results);
+            setSelectedYouTubeResultId(results[0]?.id || results[0]?.videoId || "");
+            if (!results.length) {
+                setYoutubeSearchError(result?.error || tr("noReadableYouTubeResults"));
+            }
+        }
+        catch (error) {
+            setYoutubeResults([]);
+            setSelectedYouTubeResultId("");
+            setYoutubeSearchError(error instanceof Error ? error.message : tr("youtubeSearchError"));
+        }
+        finally {
+            setYoutubeSearchBusy(false);
+        }
+    };
+    const applySelectedYouTubeResult = (resultId) => {
+        const result = youtubeResults.find((item) => item.id === resultId || item.videoId === resultId);
+        const videoId = result?.videoId || result?.id || resultId;
+        if (!videoId) {
+            setYoutubeSearchError(tr("noReadableYouTubeResults"));
+            return;
+        }
+        setSelectedYouTubeResultId(resultId);
+        setYoutubeSearchError("");
+        if (controller.setYouTubeForCurrent(videoId)) {
+            setYoutubeInput(videoId);
+            controller.refresh();
+        }
+    };
+    return (SP_JSX.jsxs(DFL.PanelSection, { title: tr("title"), children: [
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("active"), checked: snapshot.settings.enabled, onChange: (checked) => controller.setEnabled(checked) }) }),
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("homeHero"), checked: snapshot.settings.homeHeroEnabled, onChange: (checked) => controller.setHomeHero(checked) }) }),
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx("div", { style: { fontSize: "11px", opacity: 0.62, lineHeight: 1.32 }, children: tr("homeExperimentalDisclaimer") }) }),
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("youtubeGlobal"), checked: snapshot.settings.youtubeEnabled, onChange: (checked) => controller.setYouTubeEnabled(checked) }) }),
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("youtubeAutoSearch"), checked: snapshot.settings.youtubeAutoSearch, disabled: !snapshot.settings.youtubeEnabled, onChange: (checked) => controller.setYouTubeAutoSearch(checked) }) }),
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", disabled: !snapshot.settings.youtubeEnabled || snapshot.bulkYouTubeInFlight, onClick: () => { void controller.reassignYouTubeForNonSteamGames(); }, children: snapshot.bulkYouTubeInFlight ? snapshot.status : tr("youtubeBulkReassign") }) }),
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("logoAssist"), checked: snapshot.settings.logoAssistEnabled, onChange: (checked) => controller.setLogoAssist(checked) }) }),
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx("div", { style: { fontSize: "11px", opacity: 0.62, lineHeight: 1.32 }, children: tr("logoAssistHelp") }) }),
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("stopOnLaunch"), checked: snapshot.settings.stopOnLaunchEnabled, onChange: (checked) => controller.setStopOnLaunch(checked) }) }),
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("crtAutomatic"), checked: snapshot.settings.crtLowResEnabled, onChange: (checked) => controller.setLowResCrt(checked) }) }),
+        snapshot.appId ? (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("disabledForCurrentGame"), checked: currentBlocked, onChange: (checked) => controller.setCurrentAppBlocked(checked) }) })) : null,
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx("div", { style: { fontSize: "12px", opacity: 0.82, lineHeight: 1.35 }, children: snapshot.status }) }),
+        snapshot.appId ? (SP_JSX.jsxs(SP_JSX.Fragment, { children: [
+            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => controller.cyclePreferredSource(), children: tr("source", { value: getSourceLabel(snapshot.preferredSource) }) }) }),
+            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => {
+                controller.cycleQuality();
+                controller.refresh();
+            }, children: tr("steamQuality", { quality: snapshot.settings.qualityHeight }) }) }),
+            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => {
+                controller.cycleCrtForCurrent();
+                controller.refresh();
+            }, children: tr("crtGame", { value: getCrtPreferenceLabel(currentCrtPreference) }) }) }),
+            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: tr("trimStart"), value: trimStartInput, mustBeURL: false, onChange: (event) => setTrimStartInput(event.currentTarget.value) }) }),
+            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: tr("trimEnd"), value: trimEndInput, mustBeURL: false, onChange: (event) => setTrimEndInput(event.currentTarget.value) }) }),
+            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => {
+                if (controller.setTrimForCurrent(trimStartInput, trimEndInput)) {
+                    controller.refresh();
+                }
+            }, children: tr("saveTrims") }) }),
+            snapshot.steamMovies?.length ? (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.DropdownItem, { label: tr("steamTrailer"), rgOptions: snapshot.steamMovies.map((movie, index) => ({
+                data: movie.id,
+                label: `${index + 1}. ${movie.name}`
+            })), selectedOption: currentSteamMovie?.id ?? snapshot.selectedSteamMovieId ?? "", onChange: (option) => {
+                if (typeof option.data === "string") {
+                    controller.setSteamMovieForCurrent(option.data);
+                    controller.refresh();
+                }
+            } }) })) : null,
+            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: tr("youtubeForGame"), value: youtubeInput, mustBeURL: false, disabled: !snapshot.settings.youtubeEnabled, onChange: (event) => setYoutubeInput(event.currentTarget.value) }) }),
+            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", disabled: !snapshot.settings.youtubeEnabled, onClick: () => {
+                if (controller.setYouTubeForCurrent(youtubeInput)) {
+                    controller.refresh();
+                }
+            }, children: tr("saveYouTubeLink") }) }),
+            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: tr("youtubeSearchQuery"), value: youtubeQuery, mustBeURL: false, disabled: !snapshot.settings.youtubeEnabled || youtubeSearchBusy, onChange: (event) => setYoutubeQuery(event.currentTarget.value) }) }),
+            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", disabled: !snapshot.settings.youtubeEnabled || youtubeSearchBusy, onClick: () => { void handleYouTubeSearch(); }, children: youtubeSearchBusy ? tr("searchingYouTube", { title: youtubeQuery || snapshot.gameTitle || "" }) : tr("searchYouTube") }) }),
+            youtubeSearchError ? SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx("div", { style: { fontSize: "11px", opacity: 0.72, lineHeight: 1.32, whiteSpace: "normal" }, children: youtubeSearchError }) }) : null,
+            youtubeResults.length ? SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.DropdownItem, { label: tr("youtubeResults"), rgOptions: youtubeResults.map((result, index) => ({
+                data: result.id || result.videoId,
+                label: formatYouTubeResultLabel(result, index)
+            })), selectedOption: selectedYouTubeResultId, onChange: (option) => {
+                if (typeof option.data === "string") {
+                    applySelectedYouTubeResult(option.data);
+                }
+            } }) }) : null
+        ] })) : null
+    ] }));
 }
 var index = definePlugin(() => {
     controller.mount();

@@ -1,6 +1,6 @@
 {
   "name": "trailerhero",
-  "version": "0.1.7",
+  "version": "0.1.20",
   "description": "A Decky plugin that replaces Steam Big Picture hero art with quiet game trailers.",
   "private": true,
   "type": "module",

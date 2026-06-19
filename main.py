@@ -4,17 +4,29 @@ import json
 import os
 import re
 import socket
+import shutil
+import subprocess
+import traceback
 import struct
 import urllib.request
 import urllib.parse
 from urllib.parse import urlparse
+from pathlib import Path
 
 import decky
+
+
+IS_WINDOWS = os.name == "nt"
 
 
 class Plugin:
     def __init__(self):
         self._cache = {}
+        self._plugin_dir = Path(
+            getattr(decky, "DECKY_PLUGIN_DIR", Path(__file__).resolve().parent)
+        )
+        self._yt_dlp_name = "yt-dlp.exe" if IS_WINDOWS else "yt-dlp"
+        self._yt_dlp_path = self._plugin_dir / self._yt_dlp_name
 
     async def _main(self):
         decky.logger.info("TrailerHero loaded")
@@ -138,167 +150,415 @@ class Plugin:
         return result
 
     def _search_youtube_trailer_sync(self, query: str) -> dict:
-        clean_query = " ".join(query.split())
-        if not clean_query:
-            return {"ok": False, "error": "Query YouTube vuota"}
-
-        searches = [
-            f"\"{clean_query}\" official trailer game 4K 2160p",
-            f"\"{clean_query}\" official trailer game 4K",
-            f"\"{clean_query}\" official trailer game"
-        ]
-        best = None
-        best_query = searches[-1]
-        for search_query in searches:
-            results = self._search_youtube_results(search_query)
-            if not results:
-                continue
-
-            strict_results = [
-                result for result in results
-                if self._matches_game_title(clean_query, result)
-            ]
-            if not strict_results:
-                continue
-
-            strict_results.sort(
-                key=lambda item: self._score_youtube_result(clean_query, item),
-                reverse=True
-            )
-            best = strict_results[0]
-            best_query = search_query
-            break
-
-        if not best:
+        result = self._search_youtube_videos_sync(query, limit=10)
+        results = result.get("results") or []
+        if not results:
             return {
                 "ok": False,
-                "error": "Nessun risultato YouTube coerente con il titolo del gioco"
+                "query": result.get("query") or " ".join(str(query or "").split()),
+                "error": result.get("error") or "Nessun risultato YouTube coerente con il titolo del gioco"
+            }
+
+        best = results[0]
+        video_id = best.get("videoId") or best.get("id")
+        if not video_id:
+            return {
+                "ok": False,
+                "query": result.get("query") or " ".join(str(query or "").split()),
+                "error": "Nessun video YouTube riproducibile trovato"
             }
 
         return {
             "ok": True,
-            "query": best_query,
-            "videoId": best.get("videoId"),
+            "query": result.get("query") or " ".join(str(query or "").split()),
+            "videoId": video_id,
             "title": best.get("title") or "YouTube trailer",
-            "channel": best.get("channel") or "",
-            "url": f"https://www.youtube.com/watch?v={best.get('videoId')}"
+            "channel": best.get("channel") or best.get("uploader") or "",
+            "length": best.get("length") or "",
+            "duration": best.get("duration"),
+            "url": best.get("url") or best.get("webpage_url") or f"https://www.youtube.com/watch?v={video_id}"
         }
 
-    def _search_youtube_results(self, search_query: str) -> list:
-        url = (
-            "https://www.youtube.com/results?"
-            + urllib.parse.urlencode({
-                "search_query": search_query,
-                "hl": "en",
-                "gl": "US"
-            })
+    async def search_youtube_videos(self, query: str, limit: int = 10) -> dict:
+        return await asyncio.to_thread(self._search_youtube_videos_sync, str(query), int(limit))
+
+    async def resolve_youtube_streams(self, video_id: str, target_height: int = 2160) -> dict:
+        return await asyncio.to_thread(
+            self._resolve_youtube_streams_sync,
+            str(video_id),
+            int(target_height or 2160)
         )
-        request = urllib.request.Request(
+
+    def _resolve_youtube_streams_sync(self, video_id: str, target_height: int = 2160) -> dict:
+        clean_video_id = self._extract_youtube_id(video_id)
+        if not clean_video_id:
+            return {"ok": False, "error": "Link YouTube non valido", "candidates": []}
+
+        yt_dlp = self._require_yt_dlp_invocation()
+        url = f"https://www.youtube.com/watch?v={clean_video_id}"
+        command = [
+            *yt_dlp["command"],
+            "--no-warnings",
+            "--no-check-certificate",
+            "--skip-download",
+            "--no-playlist",
+            "--dump-single-json",
             url,
-            headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0 Safari/537.36"
-                ),
-                "Accept-Language": "en-US,en;q=0.9"
+        ]
+        result = self._run_command(command, timeout=65, env=yt_dlp.get("env"))
+        if result.returncode != 0:
+            return {
+                "ok": False,
+                "videoId": clean_video_id,
+                "error": self._command_error(result, "YouTube direct stream non disponibile"),
+                "candidates": []
             }
-        )
 
-        with urllib.request.urlopen(request, timeout=12) as response:
-            html = response.read().decode("utf-8", "replace")
+        try:
+            payload = json.loads(result.stdout or "{}")
+        except json.JSONDecodeError as error:
+            return {
+                "ok": False,
+                "videoId": clean_video_id,
+                "error": f"Risposta yt-dlp non valida: {error}",
+                "candidates": []
+            }
 
-        data = self._extract_yt_initial_data(html)
-        results = []
-        self._collect_youtube_results(data, results)
-        seen = set()
-        unique_results = []
-        for result in results:
-            video_id = result.get("videoId")
-            if not video_id or video_id in seen:
+        safe_target = max(360, min(int(target_height or 2160), 2160))
+        candidates = self._rank_youtube_stream_candidates(payload.get("formats") or [], safe_target)
+        return {
+            "ok": bool(candidates),
+            "videoId": clean_video_id,
+            "title": payload.get("title") or "",
+            "targetHeight": safe_target,
+            "candidates": candidates,
+            "error": "" if candidates else "Nessuno stream YouTube diretto riproducibile trovato"
+        }
+
+    def _extract_youtube_id(self, value: str) -> str | None:
+        text = str(value or "").strip()
+        patterns = [
+            r"(?:youtube\.com/watch\?v=|youtube\.com/embed/|youtube-nocookie\.com/embed/|youtu\.be/)([A-Za-z0-9_-]{11})",
+            r"^([A-Za-z0-9_-]{11})$",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text)
+            if match:
+                return match.group(1)
+        return None
+
+    def _rank_youtube_stream_candidates(self, formats: list, target_height: int) -> list:
+        candidates = []
+        seen_urls = set()
+        for entry in formats:
+            url = entry.get("url")
+            height = entry.get("height") or 0
+            vcodec = str(entry.get("vcodec") or "")
+            protocol = str(entry.get("protocol") or "")
+            ext = str(entry.get("ext") or "")
+            if (
+                not isinstance(url, str) or
+                not url.startswith(("http://", "https://")) or
+                url in seen_urls or
+                not isinstance(height, int) or
+                height <= 0 or
+                not vcodec or
+                vcodec == "none" or
+                protocol in {"mhtml"} or
+                ext in {"mhtml", "storyboard"}
+            ):
                 continue
-            seen.add(video_id)
-            result["rank"] = len(unique_results)
-            unique_results.append(result)
-        return unique_results
+            seen_urls.add(url)
+            candidates.append({
+                "url": url,
+                "height": height,
+                "width": entry.get("width") or 0,
+                "fps": entry.get("fps") or 0,
+                "ext": ext,
+                "vcodec": vcodec,
+                "acodec": entry.get("acodec") or "",
+                "formatId": str(entry.get("format_id") or ""),
+                "filesize": entry.get("filesize") or entry.get("filesize_approx") or 0,
+            })
 
-    def _extract_yt_initial_data(self, html: str) -> dict:
-        marker = "var ytInitialData = "
-        start = html.find(marker)
-        if start < 0:
-            marker = "ytInitialData = "
-            start = html.find(marker)
-        if start < 0:
-            raise RuntimeError("ytInitialData non trovato")
+        if not candidates:
+            return []
 
-        brace_start = html.find("{", start + len(marker))
-        if brace_start < 0:
-            raise RuntimeError("ytInitialData JSON non trovato")
+        def codec_rank(candidate: dict) -> int:
+            codec = str(candidate.get("vcodec") or "").lower()
+            if codec.startswith("avc1"):
+                return 4
+            if codec.startswith("vp09") or codec.startswith("vp9"):
+                return 3
+            if codec.startswith("av01") or codec.startswith("av1"):
+                return 2
+            return 1
 
-        depth = 0
-        in_string = False
-        escaped = False
-        for index in range(brace_start, len(html)):
-            char = html[index]
-            if in_string:
-                if escaped:
-                    escaped = False
-                elif char == "\\":
-                    escaped = True
-                elif char == '"':
-                    in_string = False
-            else:
-                if char == '"':
-                    in_string = True
-                elif char == "{":
-                    depth += 1
-                elif char == "}":
-                    depth -= 1
-                    if depth == 0:
-                        return json.loads(html[brace_start:index + 1])
+        def ext_rank(candidate: dict) -> int:
+            ext = str(candidate.get("ext") or "").lower()
+            if ext == "mp4":
+                return 3
+            if ext == "webm":
+                return 2
+            return 1
 
-        raise RuntimeError("ytInitialData JSON incompleto")
+        def candidate_key(candidate: dict):
+            height = int(candidate.get("height") or 0)
+            over_target_penalty = 1 if height > target_height else 0
+            distance = abs(target_height - height)
+            return (
+                over_target_penalty,
+                distance if height <= target_height else distance + 10000,
+                -height,
+                -codec_rank(candidate),
+                -ext_rank(candidate),
+                -int(candidate.get("fps") or 0),
+            )
 
-    def _collect_youtube_results(self, node, results: list):
-        if isinstance(node, dict):
-            renderer = node.get("videoRenderer")
-            if renderer:
-                title_data = renderer.get("title") or {}
-                title = title_data.get("simpleText") or "".join(
-                    run.get("text", "") for run in title_data.get("runs", [])
-                )
-                owner_data = renderer.get("ownerText") or {}
-                channel = owner_data.get("simpleText") or "".join(
-                    run.get("text", "") for run in owner_data.get("runs", [])
-                )
-                length = (renderer.get("lengthText") or {}).get("simpleText", "")
-                results.append({
-                    "videoId": renderer.get("videoId"),
+        candidates.sort(key=candidate_key)
+        return candidates[:12]
+
+    def _search_youtube_videos_sync(self, query: str, limit: int = 10) -> dict:
+        clean_query = " ".join(str(query or "").split())
+        if not clean_query:
+            return {"ok": False, "query": "", "error": "Query YouTube vuota", "results": []}
+
+        safe_limit = max(1, min(int(limit or 10), 10))
+        raw_limit = max(18, safe_limit * 3)
+        results = []
+        backend = "html"
+        errors = []
+
+        try:
+            results = self._search_youtube_results_ytdlp(clean_query, raw_limit)
+            backend = "yt-dlp"
+        except Exception as error:
+            errors.append(str(error))
+            decky.logger.warning(f"TrailerHero yt-dlp YouTube search failed, falling back to HTML: {error}")
+            try:
+                results = self._search_youtube_results_html(clean_query, raw_limit)
+                backend = "html"
+            except Exception as html_error:
+                errors.append(str(html_error))
+                decky.logger.exception("TrailerHero YouTube search failed")
+                return {
+                    "ok": False,
+                    "query": clean_query,
+                    "backend": backend,
+                    "error": " | ".join(errors[-2:]) or "YouTube search failed",
+                    "results": []
+                }
+
+        normalized_results = self._rank_youtube_results(clean_query, results)
+        return {
+            "ok": bool(normalized_results),
+            "query": clean_query,
+            "backend": backend,
+            "results": normalized_results[:safe_limit]
+        }
+
+    def _search_youtube_results_ytdlp(self, clean_query: str, raw_limit: int) -> list:
+        yt_dlp = self._require_yt_dlp_invocation()
+        seen = set()
+        combined = []
+        # The visible/default query remains the Steam game title. Internally we add
+        # trailer-specific searches first to keep auto results precise.
+        searches = [
+            f"{clean_query} official trailer video game",
+            f"{clean_query} launch trailer game",
+            f"{clean_query} trailer",
+            clean_query,
+        ]
+        per_query_limit = max(8, min(raw_limit, 18))
+        for search_query in searches:
+            command = [
+                *yt_dlp["command"],
+                "--no-warnings",
+                "--no-check-certificate",
+                "--skip-download",
+                "--flat-playlist",
+                "--print",
+                "%(id)s\t%(title)s\t%(uploader)s\t%(duration)s\t%(webpage_url)s",
+                f"ytsearch{per_query_limit}:{search_query}",
+            ]
+            result = self._run_command(command, timeout=45, env=yt_dlp.get("env"))
+            if result.returncode != 0:
+                raise RuntimeError(self._command_error(result, "YouTube search failed"))
+            for raw_line in (result.stdout or "").splitlines():
+                line = raw_line.strip()
+                if not line:
+                    continue
+                parts = line.split("\t")
+                if len(parts) < 2:
+                    continue
+                video_id = parts[0].strip()
+                if not video_id or video_id in seen:
+                    continue
+                seen.add(video_id)
+                title = parts[1].strip() or video_id
+                channel = parts[2].strip() if len(parts) > 2 else ""
+                duration_raw = parts[3].strip() if len(parts) > 3 else ""
+                duration = None
+                if duration_raw:
+                    try:
+                        duration = int(float(duration_raw))
+                    except ValueError:
+                        duration = None
+                url = parts[4].strip() if len(parts) > 4 else ""
+                if not (url.startswith("http://") or url.startswith("https://")):
+                    url = f"https://www.youtube.com/watch?v={video_id}"
+                combined.append({
+                    "videoId": video_id,
+                    "id": video_id,
                     "title": title,
                     "channel": channel,
-                    "length": length
+                    "uploader": channel,
+                    "duration": duration,
+                    "length": self._format_duration(duration),
+                    "url": url,
+                    "webpage_url": url,
+                    "rank": len(combined),
+                    "searchQuery": search_query,
                 })
+                if len(combined) >= raw_limit:
+                    return combined
+        return combined
 
-            for value in node.values():
-                self._collect_youtube_results(value, results)
-        elif isinstance(node, list):
-            for value in node:
-                self._collect_youtube_results(value, results)
+    def _run_command(self, command: list, timeout: int = 60, env: dict | None = None):
+        decky.logger.info(f"TrailerHero executing command: {' '.join(command)}")
+        run_env = os.environ.copy()
+        run_env.pop("LD_LIBRARY_PATH", None)
+        run_env.pop("PYTHONHOME", None)
+        run_env.pop("PYTHONPATH", None)
+        if env:
+            run_env.update(env)
+        run_kwargs = {
+            "capture_output": True,
+            "text": True,
+            "check": False,
+            "timeout": timeout,
+            "env": run_env,
+        }
+        if IS_WINDOWS:
+            run_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        return subprocess.run(command, **run_kwargs)
+
+    def _resolve_yt_dlp_invocation(self) -> dict | None:
+        def executable_exists(path: Path) -> bool:
+            return path.exists() and path.is_file() and (IS_WINDOWS or os.access(path, os.X_OK))
+
+        candidates = [
+            self._yt_dlp_path,
+            self._plugin_dir / "bin" / self._yt_dlp_name,
+            Path(__file__).resolve().parent / self._yt_dlp_name,
+            Path(__file__).resolve().parent / "bin" / self._yt_dlp_name,
+        ]
+        for candidate in candidates:
+            if executable_exists(candidate):
+                return {"command": [str(candidate)], "env": None, "path": str(candidate)}
+
+        system_yt_dlp = shutil.which(self._yt_dlp_name) or shutil.which("yt-dlp")
+        if system_yt_dlp:
+            return {"command": [system_yt_dlp], "env": None, "path": system_yt_dlp}
+        return None
+
+    def _require_yt_dlp_invocation(self) -> dict:
+        invocation = self._resolve_yt_dlp_invocation()
+        if invocation:
+            return invocation
+        raise RuntimeError("yt-dlp is not available")
+
+    def _command_error(self, result, fallback: str) -> str:
+        stderr = (result.stderr or "").strip()
+        stdout = (result.stdout or "").strip()
+        if stderr and stdout:
+            return self._trim_message(f"{stderr.splitlines()[-1]} | {stdout.splitlines()[-1]}", 220)
+        if stderr:
+            return self._trim_message(stderr.splitlines()[-1], 220)
+        if stdout:
+            return self._trim_message(stdout.splitlines()[-1], 220)
+        return fallback
+
+    def _trim_message(self, value: str, limit: int) -> str:
+        text = str(value or "")
+        return text if len(text) <= limit else text[:limit - 1] + "…"
+
+    def _format_duration(self, seconds) -> str:
+        if not isinstance(seconds, int) or seconds <= 0:
+            return ""
+        minutes, sec = divmod(seconds, 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours:
+            return f"{hours}:{minutes:02d}:{sec:02d}"
+        return f"{minutes}:{sec:02d}"
+
+    def _search_youtube_results_html(self, clean_query: str, raw_limit: int) -> list:
+        # HTML fallback kept from the previous TrailerHero scraper, but now scoped to
+        # trailer-specific searches and ranked after extraction.
+        seen = set()
+        combined = []
+        for search_query in (
+            f"\"{clean_query}\" official trailer game",
+            f"\"{clean_query}\" launch trailer game",
+            clean_query,
+        ):
+            results = self._search_youtube_results(search_query)
+            for result in results:
+                video_id = result.get("videoId")
+                if not video_id or video_id in seen:
+                    continue
+                seen.add(video_id)
+                result["id"] = video_id
+                result["url"] = f"https://www.youtube.com/watch?v={video_id}"
+                result["webpage_url"] = result["url"]
+                result["rank"] = len(combined)
+                combined.append(result)
+                if len(combined) >= raw_limit:
+                    return combined
+        return combined
+
+    def _rank_youtube_results(self, clean_query: str, results: list) -> list:
+        ranked = []
+        for rank, result in enumerate(results):
+            video_id = result.get("videoId") or result.get("id")
+            if not video_id:
+                continue
+            normalized = {
+                "id": video_id,
+                "videoId": video_id,
+                "title": result.get("title") or "YouTube trailer",
+                "channel": result.get("channel") or result.get("uploader") or "",
+                "uploader": result.get("uploader") or result.get("channel") or "",
+                "duration": result.get("duration"),
+                "length": result.get("length") or self._format_duration(result.get("duration")),
+                "url": result.get("url") or result.get("webpage_url") or f"https://www.youtube.com/watch?v={video_id}",
+                "webpage_url": result.get("webpage_url") or result.get("url") or f"https://www.youtube.com/watch?v={video_id}",
+                "rank": int(result.get("rank") or rank),
+            }
+            normalized["score"] = self._score_youtube_result(clean_query, normalized)
+            ranked.append(normalized)
+
+        # Prefer results that actually match the Steam game title, but keep a few
+        # fallback results so the dropdown can still show choices for difficult games.
+        ranked.sort(key=lambda item: item["score"], reverse=True)
+        strict = [item for item in ranked if self._matches_game_title(clean_query, item)]
+        loose = [item for item in ranked if item not in strict]
+        return [*strict, *loose]
 
     def _normalize_title_text(self, value: str) -> str:
         return " ".join(
-            word for word in re.split(r"[^a-z0-9]+", value.lower())
+            word for word in re.split(r"[^a-z0-9]+", str(value or "").lower())
             if word and word not in {
-                "the", "and", "game", "official", "trailer", "launch",
+                "the", "and", "game", "games", "official", "trailer", "launch",
                 "announcement", "reveal", "gameplay", "video", "4k", "2160p",
-                "1440p", "1080p", "hd", "uhd"
+                "1440p", "1080p", "hd", "uhd", "steam", "pc", "ps5", "xbox"
             }
         )
 
     def _matches_game_title(self, game_title: str, result: dict) -> bool:
         expected = self._normalize_title_text(game_title)
         title = self._normalize_title_text(result.get("title") or "")
-        channel = self._normalize_title_text(result.get("channel") or "")
+        channel = self._normalize_title_text(result.get("channel") or result.get("uploader") or "")
         if not expected or not title:
             return False
 
@@ -309,7 +569,7 @@ class Plugin:
 
         if len(expected_words) == 1:
             word = expected_words[0]
-            return word in title_words
+            return word in title_words or word in channel.split()
 
         matched = sum(1 for word in expected_words if word in title_words)
         if expected_words[0] not in title_words:
@@ -318,66 +578,77 @@ class Plugin:
 
     def _score_youtube_result(self, query: str, result: dict) -> int:
         title = (result.get("title") or "").lower()
-        channel = (result.get("channel") or "").lower()
+        channel = (result.get("channel") or result.get("uploader") or "").lower()
         query_words = [
             word for word in re.split(r"[^a-z0-9]+", query.lower())
-            if len(word) > 2 and word not in {"the", "and", "game"}
+            if len(word) > 2 and word not in {"the", "and", "game", "games"}
         ]
 
         score = 0
         for word in query_words:
             if word in title:
-                score += 8
+                score += 10
             if word in channel:
-                score += 2
+                score += 3
 
         bonuses = {
-            "official": 18,
+            "official trailer": 28,
+            "launch trailer": 18,
+            "announcement trailer": 14,
+            "reveal trailer": 14,
+            "gameplay trailer": 10,
+            "official": 16,
             "trailer": 16,
-            "4k": 14,
-            "2160p": 14,
-            "uhd": 10,
-            "1440p": 8,
-            "launch trailer": 10,
-            "announcement trailer": 8,
-            "reveal trailer": 8,
-            "gameplay trailer": 6,
-            "gameplay": 3,
+            "4k": 10,
+            "2160p": 10,
+            "uhd": 8,
         }
         for text, bonus in bonuses.items():
             if text in title:
                 score += bonus
 
         penalties = {
-            "fan made": 30,
-            "fanmade": 30,
-            "remake": 18,
-            "concept": 18,
-            "music": 10,
-            "soundtrack": 10,
-            "walkthrough": 12,
-            "beta": 8,
-            "let's play": 12,
-            "lets play": 12,
-            "review": 8,
-            "reaction": 8,
-            "youtube": 8,
+            "fan made": 35,
+            "fanmade": 35,
+            "concept": 25,
+            "music": 18,
+            "soundtrack": 18,
+            "walkthrough": 18,
+            "let's play": 18,
+            "lets play": 18,
+            "review": 14,
+            "reaction": 14,
+            "part 1": 10,
+            "episode": 10,
+            "ost": 14,
+            "playlist": 20,
+            "shorts": 18,
         }
         for text, penalty in penalties.items():
             if text in title:
                 score -= penalty
 
-        if not self._matches_game_title(query, result):
-            score -= 100
+        if self._matches_game_title(query, result):
+            score += 30
+        else:
+            score -= 120
 
         if "official" in channel:
             score += 8
         if any(word in channel for word in query_words):
-            score += 4
+            score += 5
+
+        duration = result.get("duration")
+        if isinstance(duration, int) and duration > 0:
+            if 45 <= duration <= 420:
+                score += 12
+            elif duration < 30:
+                score -= 18
+            elif duration > 900:
+                score -= 22
 
         rank = int(result.get("rank") or 0)
         score += max(0, 40 - rank * 4)
-
         return score
 
     def _eval_in_big_picture_sync(self, code: str) -> dict:

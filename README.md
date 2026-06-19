@@ -42,4 +42,36 @@ The plugin should work well on Linux, but it was built on and for Windows. Pleas
 
 This plugin works by carefully reading and adapting Steam Big Picture UI elements. Steam changes its interface often, so some selectors may need updates over time.
 
-YouTube is handled through the embedded player. TrailerHero hides as much player chrome as possible, but YouTube can still briefly show its own internal overlay in some cases.
+YouTube uses direct max-quality playback resolved with yt-dlp, then falls back to the embedded player if direct playback cannot be resolved or played.
+
+TrailerHero hides as much embedded-player chrome as possible during fallback, but YouTube can still briefly show its own internal overlay in some cases.
+
+## 0.1.20
+
+Made direct max-quality YouTube playback the default behavior and removed the playback-mode dropdown from the plugin menu. The iframe player remains as automatic fallback only.
+
+## 0.1.19
+
+Added a global YouTube playback selector:
+- Stable iframe player.
+- Experimental direct max-quality playback with iframe fallback.
+
+The direct mode resolves temporary YouTube stream URLs through yt-dlp, keeps them out of permanent settings, prunes the temporary cache, and retries when links expire.
+
+## 0.1.18
+
+Clean rebuild from the uploaded 0.1.6 base.
+
+Included only the YouTube/search/bulk-reset work up to the safe 0.1.15 line:
+- yt-dlp based YouTube search.
+- YouTube query field.
+- YouTube results dropdown, up to 10 results.
+- Selecting a dropdown result immediately applies it.
+- Global YouTube enable/disable toggle.
+- Home trailer disabled by default with experimental disclaimer.
+- Cleaner Steam title detection to avoid global UI text.
+- More aggressive YouTube quality requests.
+- Global non-Steam YouTube reassignment with Decky confirmation modal.
+- Destructive reset of saved YouTube videos, queries, and YouTube preferred sources before reassignment.
+
+Excluded the broken 0.1.16 / 0.1.17 YouTube layout experiments.
