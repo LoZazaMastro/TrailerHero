@@ -1,0 +1,12 @@
+node_modules/
+.pnpm-store/
+dist/*.map
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.tmp
+*.zip
+.DS_Store
+Thumbs.db
+
