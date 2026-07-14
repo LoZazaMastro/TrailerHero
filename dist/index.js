@@ -86,13 +86,12 @@ function FaFilm (props) {
 
 const SETTINGS_KEY = "trailerhero.settings.v1";
 const DEFAULT_SETTINGS = {
-    settingsVersion: 11,
+    settingsVersion: 12,
     enabled: true,
     delaySeconds: 3,
     opacity: 1,
     qualityHeight: 2160,
     blockedApps: [],
-    homeHeroEnabled: false,
     logoAssistEnabled: true,
     stopOnLaunchEnabled: true,
     crtLowResEnabled: true,
@@ -141,9 +140,6 @@ function parseSettings() {
             blockedApps: Array.isArray(parsed.blockedApps)
                 ? parsed.blockedApps.filter((appid) => Number.isInteger(appid))
                 : [],
-            homeHeroEnabled: typeof parsed.homeHeroEnabled === "boolean"
-                ? parsed.homeHeroEnabled
-                : DEFAULT_SETTINGS.homeHeroEnabled,
             logoAssistEnabled: typeof parsed.logoAssistEnabled === "boolean"
                 ? parsed.logoAssistEnabled
                 : DEFAULT_SETTINGS.logoAssistEnabled,
@@ -223,9 +219,6 @@ const TRANSLATIONS = {
         emptyYouTubeQuery: "Empty YouTube query",
         forceCrt: "Force CRT",
         game: "Game: {title}",
-        heroHomeDisabled: "Home hero disabled",
-        homeHero: "Enable on home",
-        homeExperimentalDisclaimer: "Home page trailers are still experimental and may break when Steam changes the library UI.",
         youtubeGlobal: "Enable YouTube videos",
         youtubeSearchQuery: "YouTube search query",
         searchYouTube: "Search YouTube",
@@ -311,9 +304,6 @@ const TRANSLATIONS = {
         emptyYouTubeQuery: "Query YouTube vuota",
         forceCrt: "Forza CRT",
         game: "Gioco: {title}",
-        heroHomeDisabled: "Hero home disattivata",
-        homeHero: "Attiva in home",
-        homeExperimentalDisclaimer: "La funzionalita nella home page e ancora sperimentale e puo rompersi quando Steam cambia la UI della libreria.",
         youtubeGlobal: "Abilita video YouTube",
         youtubeSearchQuery: "Query ricerca YouTube",
         searchYouTube: "Cerca su YouTube",
@@ -399,8 +389,6 @@ const TRANSLATIONS = {
         emptyYouTubeQuery: "Recherche YouTube vide",
         forceCrt: "Forcer CRT",
         game: "Jeu : {title}",
-        heroHomeDisabled: "Hero de l'accueil désactivé",
-        homeHero: "Activer sur l'accueil",
         invalidSteamAppId: "Steam AppID invalide",
         invalidTrims: "Découpes valides : 0-60 secondes",
         invalidYouTubeLink: "Lien YouTube invalide",
@@ -471,8 +459,6 @@ const TRANSLATIONS = {
         emptyYouTubeQuery: "Búsqueda de YouTube vacía",
         forceCrt: "Forzar CRT",
         game: "Juego: {title}",
-        heroHomeDisabled: "Hero de inicio desactivado",
-        homeHero: "Activar en inicio",
         invalidSteamAppId: "Steam AppID no válido",
         invalidTrims: "Recortes válidos: 0-60 segundos",
         invalidYouTubeLink: "Enlace de YouTube no válido",
@@ -543,8 +529,6 @@ const TRANSLATIONS = {
         emptyYouTubeQuery: "Pesquisa YouTube vazia",
         forceCrt: "Forçar CRT",
         game: "Jogo: {title}",
-        heroHomeDisabled: "Hero do início desativado",
-        homeHero: "Ativar no início",
         invalidSteamAppId: "Steam AppID inválido",
         invalidTrims: "Cortes válidos: 0-60 segundos",
         invalidYouTubeLink: "Link do YouTube inválido",
@@ -615,8 +599,6 @@ const TRANSLATIONS = {
         emptyYouTubeQuery: "Busca do YouTube vazia",
         forceCrt: "Forçar CRT",
         game: "Jogo: {title}",
-        heroHomeDisabled: "Hero da home desativado",
-        homeHero: "Ativar na home",
         invalidSteamAppId: "Steam AppID inválido",
         invalidTrims: "Cortes válidos: 0-60 segundos",
         invalidYouTubeLink: "Link do YouTube inválido",
@@ -687,8 +669,6 @@ const TRANSLATIONS = {
         emptyYouTubeQuery: "Leere YouTube-Suche",
         forceCrt: "CRT erzwingen",
         game: "Spiel: {title}",
-        heroHomeDisabled: "Home-Hero deaktiviert",
-        homeHero: "Auf Home aktivieren",
         invalidSteamAppId: "Ungültige Steam AppID",
         invalidTrims: "Gültige Schnitte: 0-60 Sekunden",
         invalidYouTubeLink: "Ungültiger YouTube-Link",
@@ -759,8 +739,6 @@ const TRANSLATIONS = {
         emptyYouTubeQuery: "Lege YouTube-zoekopdracht",
         forceCrt: "CRT forceren",
         game: "Game: {title}",
-        heroHomeDisabled: "Home-hero uitgeschakeld",
-        homeHero: "Inschakelen op home",
         invalidSteamAppId: "Ongeldige Steam AppID",
         invalidTrims: "Geldige trims: 0-60 seconden",
         invalidYouTubeLink: "Ongeldige YouTube-link",
@@ -831,8 +809,6 @@ const TRANSLATIONS = {
         emptyYouTubeQuery: "Порожній пошук YouTube",
         forceCrt: "Увімкнути CRT",
         game: "Гра: {title}",
-        heroHomeDisabled: "Hero на головній вимкнено",
-        homeHero: "Увімкнути на головній",
         invalidSteamAppId: "Недійсний Steam AppID",
         invalidTrims: "Допустимі обрізки: 0-60 секунд",
         invalidYouTubeLink: "Недійсне посилання YouTube",
@@ -903,8 +879,6 @@ const TRANSLATIONS = {
         emptyYouTubeQuery: "YouTube 搜索为空",
         forceCrt: "强制 CRT",
         game: "游戏：{title}",
-        heroHomeDisabled: "主页 Hero 已禁用",
-        homeHero: "在主页启用",
         invalidSteamAppId: "Steam AppID 无效",
         invalidTrims: "有效裁剪：0-60 秒",
         invalidYouTubeLink: "YouTube 链接无效",
@@ -975,8 +949,6 @@ const TRANSLATIONS = {
         emptyYouTubeQuery: "YouTube 検索が空です",
         forceCrt: "CRT を強制",
         game: "ゲーム: {title}",
-        heroHomeDisabled: "ホームの Hero は無効",
-        homeHero: "ホームで有効",
         invalidSteamAppId: "Steam AppID が無効です",
         invalidTrims: "有効なトリム: 0-60 秒",
         invalidYouTubeLink: "YouTube リンクが無効です",
@@ -1172,7 +1144,7 @@ function isRuntimeSnapshot(value) {
 }
 function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const runtimeKey = "__trailerHeroRuntime";
-    const runtimeVersion = "1.2.2.0";
+    const runtimeVersion = "1.2.5.1";
     const styleId = "trailerhero-style";
     const videoClass = "trailerhero-video";
     const youtubeClass = "trailerhero-youtube";
@@ -1181,9 +1153,6 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const crtClass = "trailerhero-crt";
     const hostClass = "trailerhero-host";
     const targetClass = "trailerhero-target";
-    const homeAnchorClass = "trailerhero-home-anchor";
-    const homeWindowClass = "trailerhero-home-window";
-    const homeFadeSuppressedClass = "trailerhero-home-fade-suppressed";
     const readyClass = "trailerhero-ready";
     const visibleClass = "trailerhero-visible";
     const defaultTrimStartSeconds = 4;
@@ -1401,127 +1370,71 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 : Number.NaN;
         return Number.isInteger(appId) && appId > 0 ? appId : undefined;
     }
-    function readAppIdFromUnknown(value, depth = 0) {
-        if (!value || depth > 5) {
-            return undefined;
-        }
-        if (Array.isArray(value)) {
-            for (const item of value.slice(0, 12)) {
-                const appId = readAppIdFromUnknown(item, depth + 1);
-                if (appId) {
-                    return appId;
-                }
-            }
-            return undefined;
-        }
-        if (typeof value !== "object") {
-            return undefined;
-        }
-        const record = value;
-        for (const key of ["appid", "appId", "appID", "app_id", "unAppID", "nAppID", "m_unAppID"]) {
-            const appId = coerceAppId(record[key]);
-            if (appId) {
-                return appId;
-            }
-        }
-        const appIdFromApp = readAppIdFromUnknown(record.app, depth + 1);
-        if (appIdFromApp) {
-            return appIdFromApp;
-        }
-        if (depth >= 3) {
-            return undefined;
-        }
-        for (const key of Object.keys(record).slice(0, 24)) {
-            const appId = readAppIdFromUnknown(record[key], depth + 1);
-            if (appId) {
-                return appId;
-            }
-        }
-        return undefined;
-    }
-    function readReactAppId(element) {
-        const reactKeys = Object.getOwnPropertyNames(element).filter((key) => key.startsWith("__react"));
-        for (const key of reactKeys) {
-            let fiber = element[key];
-            for (let depth = 0; fiber && depth < 12; depth += 1) {
-                const fiberRecord = fiber;
-                const appId = readAppIdFromUnknown(fiberRecord.memoizedProps) ?? readAppIdFromUnknown(fiberRecord.pendingProps);
-                if (appId) {
-                    return appId;
-                }
-                fiber = fiberRecord.return;
-            }
-        }
-        return undefined;
-    }
-    function findFocusedHomeAppId() {
-        const active = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
-        if (!active) {
-            return undefined;
-        }
-        const elements = [active];
-        elements.push(...Array.from(active.querySelectorAll("img, [style], a[href], [role='link']")));
-        let ancestor = active.parentElement;
-        while (ancestor && elements.length < 96) {
-            elements.push(ancestor);
-            ancestor = ancestor.parentElement;
-        }
-        for (const element of elements) {
-            const appId = readReactAppId(element) ?? extractAppIdFromText(getElementAssetText(element));
-            if (appId) {
-                return appId;
-            }
-        }
-        return undefined;
-    }
     function hasGameDetailsSignals(bodyText) {
-        const hasActionText = /\b(play|install|resume|update|gioca|avvia|installa|riprendi|aggiorna)\b/.test(bodyText);
-        const hasGamePageText = (/\b(achievements|achievement|activity|dlc|community|controller|library|cloud)\b/.test(bodyText) ||
-            /\b(obiettivi|attivit|collezione|ultimo avvio|tempo di gioco|informazioni sul gioco|amici)\b/.test(bodyText));
-        return hasActionText && hasGamePageText;
+        const hasActionText = /\b(play|launch|install|resume|update|stream|gioca|avvia|installa|riprendi|aggiorna|jouer|lancer|installer|reprendre|jugar|iniciar|instalar|reanudar|jogar|continuar|spielen|installieren|fortsetzen)\b/.test(bodyText) ||
+            ["开始游戏", "开始", "安装", "继续", "更新", "プレイ", "起動", "インストール", "再開"].some((word) => bodyText.includes(word));
+        const hasSpecificDetailsText = (/\b(achievements?|activity|dlc|community|controller|last played|play time|game info|friends who play)\b/.test(bodyText) ||
+            /\b(obiettivi?|attivit[aà]|ultimo avvio|ultimo lancio|tempo di gioco|informazioni sul gioco|amici che giocano)\b/.test(bodyText) ||
+            /\b(succ[eè]s|activit[eé]|dernier lancement|temps de jeu|informations sur le jeu)\b/.test(bodyText) ||
+            /\b(logros?|actividad|último inicio|tiempo de juego|información del juego)\b/.test(bodyText));
+        return hasActionText && hasSpecificDetailsText;
     }
-    function hasLibraryHomeRoute(routeText) {
+    function isLibraryOverviewRoute(routeText) {
         return (routeText.includes("/routes/library/home") ||
             routeText.includes("/library/home") ||
             routeText.includes("library_home") ||
             routeText.includes("libraryhome"));
     }
-    function getHomeCapsuleLikeCount() {
+    function getVisibleLibraryTileCount() {
         return Array.from(document.querySelectorAll("img[src*='/customimages/'], img[src*='library_capsule'], img[src*='header_image'], [style*='/customimages/'], [style*='library_capsule'], [style*='header_image']")).filter((element) => {
+            const assetText = getElementAssetText(element).toLowerCase();
+            if (assetText.includes("library_hero") || assetText.includes("_hero")) {
+                return false;
+            }
             const rect = element.getBoundingClientRect();
             return (rect.width >= 90 &&
                 rect.height >= 90 &&
-                rect.top > window.innerHeight * 0.35 &&
-                rect.top < window.innerHeight * 0.95);
+                rect.top > window.innerHeight * 0.3 &&
+                rect.top < window.innerHeight * 0.98 &&
+                rect.bottom > 0 &&
+                rect.right > 0);
         }).length;
     }
-    function hasLibraryHomeSignals(bodyText, routeText) {
-        const hasHomeText = (bodyText.includes("vedi altri giochi nella libreria") ||
+    function isLibraryOverviewSurface(bodyText, routeText) {
+        if (isLibraryOverviewRoute(routeText)) {
+            return true;
+        }
+        const hasOverviewText = (bodyText.includes("vedi altri giochi nella libreria") ||
             bodyText.includes("see more games in your library") ||
             bodyText.includes("recent games") ||
             bodyText.includes("giochi recenti"));
-        if (hasHomeText) {
+        if (hasOverviewText) {
             return true;
         }
-        const capsuleLikeCount = getHomeCapsuleLikeCount();
-        if (capsuleLikeCount < 3) {
+        if (getVisibleLibraryTileCount() < 3) {
             return false;
         }
         const hasBigPictureChrome = /\b(menu|opzioni|options|seleziona|select|indietro|back)\b/.test(bodyText);
-        return hasLibraryHomeRoute(routeText) || hasBigPictureChrome;
+        return hasBigPictureChrome;
     }
     function isProbablyGameDetailsPage() {
-        if (detectLocationAppId()) {
-            return true;
+        if (!document.body) {
+            return false;
         }
-        const bodyText = document.body?.innerText?.slice(0, 7000).toLowerCase() ?? "";
+        const bodyText = document.body.innerText?.slice(0, 9000).toLowerCase() ?? "";
         const routeText = [
             window.location.href,
             window.location.pathname,
             window.location.hash,
             document.URL
         ].join(" ").toLowerCase();
-        if (hasLibraryHomeSignals(bodyText, routeText)) {
+        if (isLibraryOverviewSurface(bodyText, routeText)) {
+            return false;
+        }
+        if (detectLocationAppId()) {
+            return true;
+        }
+        if (!findHeroCandidate()) {
             return false;
         }
         return hasGameDetailsSignals(bodyText);
@@ -1567,25 +1480,6 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             "インストール",
             "再開"
         ].some((word) => text.includes(word));
-    }
-    function isLibraryHomePage() {
-        const routeText = [
-            window.location.href,
-            window.location.pathname,
-            window.location.hash,
-            document.URL
-        ].join(" ").toLowerCase();
-        if (detectLocationAppId()) {
-            return false;
-        }
-        const bodyText = document.body?.innerText?.slice(0, 9000).toLowerCase() ?? "";
-        if (hasLibraryHomeSignals(bodyText, routeText)) {
-            return true;
-        }
-        if (hasGameDetailsSignals(bodyText)) {
-            return false;
-        }
-        return hasLibraryHomeRoute(routeText) && Boolean(findHeroCandidate());
     }
     function detectGameTitle(appId) {
         const cleanTitle = (value) => {
@@ -2070,29 +1964,6 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
         bottom: auto !important;
       }
 
-      .${homeAnchorClass} {
-        position: relative !important;
-      }
-
-      .${homeWindowClass} {
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: 100% !important;
-        height: min(58vh, calc(100vh - 390px)) !important;
-        min-height: min(330px, 48vh) !important;
-        max-height: 680px !important;
-        z-index: 0 !important;
-        overflow: hidden !important;
-      }
-
-      body.${homeFadeSuppressedClass} [style*='library_hero'],
-      body.${homeFadeSuppressedClass} [style*='_hero'],
-      body.${homeFadeSuppressedClass} img[src*='library_hero'],
-      body.${homeFadeSuppressedClass} img[src*='_hero'] {
-        transition: none !important;
-        animation: none !important;
-      }
 
       .${videoClass} {
         position: absolute !important;
@@ -2209,7 +2080,6 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.status = rt("waitingGamePage");
             this.requestToken = 0;
             this.trailerCache = new Map();
-            this.hiddenHomeHeroCopies = [];
             this.scanQueued = false;
             this.launchSuppressedUntil = 0;
             this.handleRouteChange = () => {
@@ -2284,7 +2154,6 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             const directYouTubeChangeAffectsCurrentMedia = Boolean(this.currentYouTubeVideoId) &&
                 (youtubeDirectStreamsChanged || youtubePlaybackModeChanged);
             if (previousSettings.qualityHeight !== settings.qualityHeight ||
-                previousSettings.homeHeroEnabled !== settings.homeHeroEnabled ||
                 previousSettings.logoAssistEnabled !== settings.logoAssistEnabled ||
                 previousSettings.crtLowResEnabled !== settings.crtLowResEnabled ||
                 previousSettings.youtubeEnabled !== settings.youtubeEnabled ||
@@ -2362,20 +2231,15 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             }
             if (mutation.type === "attributes" && target) {
                 const assetText = getElementAssetText(target).toLowerCase();
-                const className = String(target.getAttribute("class") ?? "").toLowerCase();
                 return (assetText.includes("library_hero") ||
                     assetText.includes("_hero") ||
-                    assetText.includes("customimages") ||
-                    assetText.includes("library_capsule") ||
-                    className.includes("focus") ||
-                    className.includes("selected"));
+                    assetText.includes("customimages"));
             }
             return true;
         }
         stopTrailerForLaunch(target) {
             if (!this.settings.stopOnLaunchEnabled ||
                 !this.currentAppId ||
-                isLibraryHomePage() ||
                 !(target instanceof HTMLElement) ||
                 !isLaunchActionElement(target)) {
                 return;
@@ -2406,23 +2270,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 return;
             }
             const isGameDetails = isProbablyGameDetailsPage();
-            const isHome = isLibraryHomePage() && !isGameDetails;
-            if (isHome && !this.settings.homeHeroEnabled) {
-                this.currentAppId = undefined;
-                this.currentSourceAppId = undefined;
-                this.currentTrailerName = undefined;
-                this.currentGameTitle = undefined;
-                this.selectedSteamMovieId = undefined;
-                this.steamMovies = [];
-                this.preferredSource = "auto";
-                this.needsSteamAppSearch = false;
-                this.currentSteamAppSearchTitle = undefined;
-                this.needsYouTubeSearch = false;
-                this.cleanupVideo(true);
-                this.status = rt("heroHomeDisabled");
-                return;
-            }
-            if (!document.body || (!isHome && !isGameDetails)) {
+            if (!document.body || !isGameDetails) {
                 this.currentAppId = undefined;
                 this.currentSourceAppId = undefined;
                 this.currentTrailerName = undefined;
@@ -2439,8 +2287,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             }
             const locationAppId = detectLocationAppId();
             const hero = findHeroCandidate();
-            const focusedHomeAppId = isHome ? findFocusedHomeAppId() : undefined;
-            const appId = locationAppId ?? focusedHomeAppId ?? hero?.appId;
+            const appId = locationAppId ?? hero?.appId;
             if (!appId || !hero) {
                 this.currentAppId = appId;
                 this.currentSourceAppId = appId ? this.getSourceAppId(appId) : undefined;
@@ -2842,7 +2689,6 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                     if (token === this.requestToken && video.isConnected) {
                         this.seekPastIntro(video);
                         this.applyLowResCrt(host, video);
-                        this.hideDuplicateHomeHeroCopies(appId);
                         video.classList.add(visibleClass);
                         this.moveSteamLogoForTrailer(appId, token);
                         this.status = this.currentTrailerName ? rt("trailerLabel", { name: this.currentTrailerName }) : rt("trailerActive");
@@ -2998,7 +2844,6 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 host.classList.add(targetClass, readyClass);
                 this.fadeTimer = setTimeout(() => {
                     if (token === this.requestToken && frame.isConnected) {
-                        this.hideDuplicateHomeHeroCopies(appId);
                         const shouldApplyCrt = this.shouldApplyCrt(appId, false);
                         host.classList.toggle(crtClass, shouldApplyCrt);
                         frame.classList.toggle(crtClass, shouldApplyCrt);
@@ -3074,79 +2919,8 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             video.classList.toggle(crtClass, shouldApply);
             target.classList.toggle(crtClass, shouldApply);
         }
-        hideDuplicateHomeHeroCopies(appId) {
-            if (!isLibraryHomePage()) {
-                return;
-            }
-            this.restoreDuplicateHomeHeroCopies();
-            document.body.classList.add(homeFadeSuppressedClass);
-            const selector = [
-                "[style*='library_hero']",
-                "[style*='_hero']",
-                "img[src*='library_hero']",
-                "img[src*='_hero']"
-            ].join(",");
-            for (const element of Array.from(document.querySelectorAll(selector))) {
-                if (element.classList.contains(videoClass) || element.classList.contains(logoClass)) {
-                    continue;
-                }
-                const assetText = getElementAssetText(element);
-                const lower = assetText.toLowerCase();
-                const copyAppId = extractAppIdFromText(assetText);
-                if (!copyAppId && !lower.includes("library_hero") && !lower.includes("_hero")) {
-                    continue;
-                }
-                const protectsActiveHost = Boolean(this.currentHost && (element === this.currentHost || element.contains(this.currentHost)));
-                const protectsActiveTarget = Boolean(this.currentTarget && (element === this.currentTarget || element.contains(this.currentTarget)));
-                if (protectsActiveHost || protectsActiveTarget) {
-                    continue;
-                }
-                const rect = element.getBoundingClientRect();
-                const isLargeHeroLayer = (rect.width >= window.innerWidth * 0.34 &&
-                    rect.height >= window.innerHeight * 0.18 &&
-                    rect.top < window.innerHeight * 0.62 &&
-                    rect.bottom > 0);
-                if (!isLargeHeroLayer) {
-                    continue;
-                }
-                this.hiddenHomeHeroCopies.push({
-                    element,
-                    opacity: element.style.opacity,
-                    transition: element.style.transition,
-                    animation: element.style.animation,
-                    pointerEvents: element.style.pointerEvents
-                });
-                element.dataset.trailerheroHomeCopyHidden = "1";
-                if (copyAppId && copyAppId !== appId) {
-                    element.style.setProperty("opacity", "0", "important");
-                }
-                element.style.setProperty("transition", "none", "important");
-                element.style.setProperty("animation", "none", "important");
-                element.style.setProperty("pointer-events", "none", "important");
-            }
-        }
-        restoreDuplicateHomeHeroCopies() {
-            document.body.classList.remove(homeFadeSuppressedClass);
-            for (const state of this.hiddenHomeHeroCopies) {
-                const { element } = state;
-                element.style.opacity = state.opacity;
-                element.style.transition = state.transition;
-                element.style.animation = state.animation;
-                element.style.pointerEvents = state.pointerEvents;
-                delete element.dataset.trailerheroHomeCopyHidden;
-            }
-            this.hiddenHomeHeroCopies = [];
-            document.querySelectorAll("[data-trailerhero-home-copy-hidden='1']")
-                .forEach((element) => {
-                element.style.removeProperty("opacity");
-                element.style.removeProperty("transition");
-                element.style.removeProperty("animation");
-                element.style.removeProperty("pointer-events");
-                delete element.dataset.trailerheroHomeCopyHidden;
-            });
-        }
         moveSteamLogoForTrailer(appId, token) {
-            if (!this.settings.logoAssistEnabled || isLibraryHomePage() || token !== this.requestToken) {
+            if (!this.settings.logoAssistEnabled || token !== this.requestToken) {
                 return;
             }
             void this.moveSteamLogoForTrailerAsync(appId, token);
@@ -3160,7 +2934,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 return;
             }
             const overview = await getSteamAppOverview(appId);
-            if (token !== this.requestToken || !this.settings.logoAssistEnabled || isLibraryHomePage()) {
+            if (token !== this.requestToken || !this.settings.logoAssistEnabled) {
                 return;
             }
             if (!overview) {
@@ -3178,7 +2952,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 this.showLogoAssist(this.currentHost ?? this.currentTarget ?? document.body, appId, token);
                 return;
             }
-            if (token !== this.requestToken || !this.settings.logoAssistEnabled || isLibraryHomePage()) {
+            if (token !== this.requestToken || !this.settings.logoAssistEnabled) {
                 if (hadCustomPosition && originalPosition) {
                     await saveSteamLogoPosition(overview, originalPosition);
                 }
@@ -3208,7 +2982,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             await clearSteamLogoPosition(restore.appId, restore.overview);
         }
         showLogoAssist(target, appId, token) {
-            if (!this.settings.logoAssistEnabled || !appId || isLibraryHomePage() || token !== this.requestToken) {
+            if (!this.settings.logoAssistEnabled || !appId || token !== this.requestToken) {
                 return;
             }
             void this.showLogoAssistAsync(target, appId, token);
@@ -3586,16 +3360,12 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 clearTimeout(this.fadeTimer);
                 this.fadeTimer = undefined;
             }
-            this.restoreDuplicateHomeHeroCopies();
             void this.restoreSteamLogoPosition();
             const objectUrl = this.currentVideo?.dataset.trailerheroObjectUrl;
             this.currentVideo?.remove();
             this.currentFrame?.remove();
             this.currentLogo?.remove();
             this.currentYouTubeMask?.remove();
-            if (this.currentHost?.classList.contains(homeWindowClass)) {
-                this.currentHost.remove();
-            }
             if (objectUrl) {
                 URL.revokeObjectURL(objectUrl);
             }
@@ -3606,12 +3376,12 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.currentHost = undefined;
             this.currentMediaAppId = undefined;
             this.currentMediaSignature = undefined;
-            this.currentTarget?.classList.remove(targetClass, readyClass, crtClass, homeAnchorClass);
+            this.currentTarget?.classList.remove(targetClass, readyClass, crtClass);
             this.currentTarget = undefined;
-            document.querySelectorAll(`.${videoClass}, .${youtubeMaskClass}, .${homeWindowClass}, .${logoClass}`)
+            document.querySelectorAll(`.${videoClass}, .${youtubeMaskClass}, .${logoClass}`)
                 .forEach((element) => element.remove());
-            document.querySelectorAll(`.${targetClass}, .${homeAnchorClass}`)
-                .forEach((element) => element.classList.remove(targetClass, readyClass, crtClass, homeAnchorClass));
+            document.querySelectorAll(`.${targetClass}`)
+                .forEach((element) => element.classList.remove(targetClass, readyClass, crtClass));
         }
     }
     const existing = window[runtimeKey];
@@ -3755,12 +3525,6 @@ class TrailerHeroController {
     }
     cycleQuality() {
         this.updateSettings({ qualityHeight: getNextOption(QUALITY_OPTIONS, this.settings.qualityHeight) });
-    }
-    toggleHomeHero() {
-        this.updateSettings({ homeHeroEnabled: !this.settings.homeHeroEnabled });
-    }
-    setHomeHero(enabled) {
-        this.updateSettings({ homeHeroEnabled: enabled });
     }
     toggleLogoAssist() {
         this.updateSettings({ logoAssistEnabled: !this.settings.logoAssistEnabled });
@@ -4558,8 +4322,6 @@ function Content() {
     };
     return (SP_JSX.jsxs(DFL.PanelSection, { title: tr("title"), children: [
         SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("active"), checked: snapshot.settings.enabled, onChange: (checked) => controller.setEnabled(checked) }) }),
-        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("homeHero"), checked: snapshot.settings.homeHeroEnabled, onChange: (checked) => controller.setHomeHero(checked) }) }),
-        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx("div", { style: { fontSize: "11px", opacity: 0.62, lineHeight: 1.32 }, children: tr("homeExperimentalDisclaimer") }) }),
         SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("youtubeGlobal"), checked: snapshot.settings.youtubeEnabled, onChange: (checked) => controller.setYouTubeEnabled(checked) }) }),
         SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("youtubeAutoSearch"), checked: snapshot.settings.youtubeAutoSearch, disabled: !snapshot.settings.youtubeEnabled, onChange: (checked) => controller.setYouTubeAutoSearch(checked) }) }),
         SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", disabled: !snapshot.settings.youtubeEnabled || snapshot.bulkYouTubeInFlight, onClick: () => { void controller.reassignYouTubeForNonSteamGames(); }, children: snapshot.bulkYouTubeInFlight ? snapshot.status : tr("youtubeBulkReassign") }) }),

@@ -4,7 +4,7 @@ TrailerHero is a Decky Loader plugin that makes Steam Big Picture feel a little 
 
 When you open a game page, the plugin keeps the original Steam hero artwork in place for three seconds, then fades in a muted trailer inside the same hero area. It can use Steam trailers first, and YouTube automatically when Steam has nothing useful.
 
-It also supports the Steam Big Picture home page, per-game Steam video choices, strict YouTube auto-search, intro/outro trimming, optional CRT styling for low-resolution videos, and a small logo assist for game pages that use tiny SteamGridDB logos.
+It also supports per-game Steam video choices, strict YouTube auto-search, intro/outro trimming, optional CRT styling for low-resolution videos, and a small logo assist for game pages that use tiny SteamGridDB logos.
 
 ## Languages
 
@@ -27,7 +27,6 @@ Included languages:
 ## Main Controls
 
 - **Enabled** turns the effect on or off.
-- **Enable on home** also plays trailers on the Steam Big Picture library home.
 - **Game page logo** moves the game logo to the bottom-left while the trailer is visible, then restores it when you leave.
 - **Automatic CRT** applies a subtle CRT look to low-resolution trailers.
 - **Source** lets each game use automatic mode, Steam, or YouTube.
@@ -45,6 +44,10 @@ This plugin works by carefully reading and adapting Steam Big Picture UI element
 YouTube uses direct max-quality playback resolved with yt-dlp, then falls back to the embedded player if direct playback cannot be resolved or played.
 
 TrailerHero hides as much embedded-player chrome as possible during fallback, but YouTube can still briefly show its own internal overlay in some cases.
+
+## 1.2.5
+
+Removed Home mode completely. TrailerHero now runs only on individual game detail pages; the Home toggle, experimental disclaimer, saved Home setting, focused-capsule detection, Home-specific hero handling, and related styles have all been removed.
 
 ## 1.2.2
 
@@ -84,7 +87,6 @@ Included only the YouTube/search/bulk-reset work up to the safe 0.1.15 line:
 - YouTube results dropdown, up to 10 results.
 - Selecting a dropdown result immediately applies it.
 - Global YouTube enable/disable toggle.
-- Home trailer disabled by default with experimental disclaimer.
 - Cleaner Steam title detection to avoid global UI text.
 - More aggressive YouTube quality requests.
 - Global non-Steam YouTube reassignment with Decky confirmation modal.

@@ -1,6 +1,6 @@
 # Source Recovery Notes
 
-This repository is reconstructed from the validated TrailerHero 1.2.2 plugin bundle.
+This repository is reconstructed from the validated TrailerHero 1.2.5 plugin bundle.
 
 The current publishable frontend is:
 
@@ -17,3 +17,7 @@ Important current behavior lives in the bundle:
 
 If a future TypeScript source tree is reconstructed, compare it against `dist/index.js` before publishing. Do not replace the bundle unless the rebuilt output preserves the current runtime behavior.
 
+
+## 1.2.5 maintenance
+
+Home mode and its setting were removed completely; runtime playback is now restricted to individual game detail pages.
