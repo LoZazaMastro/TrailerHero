@@ -47,7 +47,11 @@ TrailerHero hides as much embedded-player chrome as possible during fallback, bu
 
 ## 1.2.5
 
-Removed Home mode completely. TrailerHero now runs only on individual game detail pages; the Home toggle, experimental disclaimer, saved Home setting, focused-capsule detection, Home-specific hero handling, and related styles have all been removed.
+Removed the configurable Home mode, its toggle, experimental disclaimer, saved setting, and related styles. TrailerHero never starts on the actual Library Home surface, even when Steam displays a full-width focused-game hero. It still supports a real game-details surface when Steam temporarily leaves the stale `/library/home` URL in place.
+
+Improved trailer startup reliability. Explicit game-detail routes are now accepted before the library-overview heuristic, so valid game pages are not intermittently rejected when Steam renders additional library tiles. Steam video candidates can recover after a late media error, stalled direct URLs time out, and adaptive-stream network requests now have bounded timeouts.
+
+Smoothed game-logo entry when a trailer starts. Logo images now wait until their pixels are loaded before fading in, while Steam's native text-title fallback receives the same controlled fade instead of appearing abruptly.
 
 ## 1.2.2
 

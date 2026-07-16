@@ -1144,12 +1144,13 @@ function isRuntimeSnapshot(value) {
 }
 function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const runtimeKey = "__trailerHeroRuntime";
-    const runtimeVersion = "1.2.5.1";
+    const runtimeVersion = "1.2.5.9";
     const styleId = "trailerhero-style";
     const videoClass = "trailerhero-video";
     const youtubeClass = "trailerhero-youtube";
     const youtubeMaskClass = "trailerhero-youtube-mask";
     const logoClass = "trailerhero-logo";
+    const nativeLogoClass = "trailerhero-native-logo";
     const crtClass = "trailerhero-crt";
     const hostClass = "trailerhero-host";
     const targetClass = "trailerhero-target";
@@ -1357,7 +1358,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 continue;
             }
             if (!best || score > best.score) {
-                best = { appId, element: target, score };
+                best = { appId, element: target, score, assetText };
             }
         }
         return best;
@@ -1385,6 +1386,25 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             routeText.includes("library_home") ||
             routeText.includes("libraryhome"));
     }
+    function hasLibraryOverviewText(bodyText) {
+        return (bodyText.includes("vedi altri giochi nella libreria") ||
+            bodyText.includes("see more games in your library") ||
+            bodyText.includes("recent games") ||
+            bodyText.includes("giochi recenti"));
+    }
+    function isFocusedLibraryHomeHero(hero) {
+        if (!hero) {
+            return false;
+        }
+        const rect = hero.element.getBoundingClientRect();
+        const assetText = hero.assetText.toLowerCase();
+        const isHeroAsset = assetText.includes("library_hero") || assetText.includes("_hero");
+        return (isHeroAsset &&
+            rect.width >= window.innerWidth * 0.7 &&
+            rect.height >= Math.min(240, window.innerHeight * 0.24) &&
+            rect.top <= window.innerHeight * 0.12 &&
+            rect.bottom > window.innerHeight * 0.12);
+    }
     function getVisibleLibraryTileCount() {
         return Array.from(document.querySelectorAll("img[src*='/customimages/'], img[src*='library_capsule'], img[src*='header_image'], [style*='/customimages/'], [style*='library_capsule'], [style*='header_image']")).filter((element) => {
             const assetText = getElementAssetText(element).toLowerCase();
@@ -1401,14 +1421,10 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
         }).length;
     }
     function isLibraryOverviewSurface(bodyText, routeText) {
-        if (isLibraryOverviewRoute(routeText)) {
+        if (isLibraryOverviewRoute(routeText) && hasLibraryOverviewText(bodyText)) {
             return true;
         }
-        const hasOverviewText = (bodyText.includes("vedi altri giochi nella libreria") ||
-            bodyText.includes("see more games in your library") ||
-            bodyText.includes("recent games") ||
-            bodyText.includes("giochi recenti"));
-        if (hasOverviewText) {
+        if (hasLibraryOverviewText(bodyText)) {
             return true;
         }
         if (getVisibleLibraryTileCount() < 3) {
@@ -1428,11 +1444,17 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             window.location.hash,
             document.URL
         ].join(" ").toLowerCase();
-        if (isLibraryOverviewSurface(bodyText, routeText)) {
+        if (hasLibraryOverviewText(bodyText)) {
             return false;
+        }
+        if (isLibraryOverviewRoute(routeText)) {
+            return isFocusedLibraryHomeHero(findHeroCandidate()) && hasGameDetailsSignals(bodyText);
         }
         if (detectLocationAppId()) {
             return true;
+        }
+        if (isLibraryOverviewSurface(bodyText, routeText)) {
+            return false;
         }
         if (!findHeroCandidate()) {
             return false;
@@ -1836,6 +1858,28 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             .sort((left, right) => right.score - left.score);
         return candidates[0]?.source;
     }
+    function findNativeGameTitleElement(appId) {
+        const title = detectGameTitle(appId).trim().toLowerCase();
+        if (!title) {
+            return undefined;
+        }
+        return Array.from(document.querySelectorAll("h1, h2, h3, [class]"))
+            .filter((element) => !element.closest(`.${logoClass}, .${videoClass}, button, [role='button']`))
+            .map((element) => {
+            const text = (element.textContent ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+            const rect = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            const transitionBias = style.transitionProperty.includes("opacity") || style.transition.includes("opacity") ? 10000 : 0;
+            const area = Math.max(1, rect.width * rect.height);
+            return { element, text, rect, score: transitionBias - area };
+        })
+            .filter(({ text, rect }) => (text === title &&
+            rect.width > 20 &&
+            rect.height > 8 &&
+            rect.bottom > 0 &&
+            rect.top < window.innerHeight * 0.72))
+            .sort((left, right) => right.score - left.score)[0]?.element;
+    }
     function isLogoPosition(value) {
         if (!value || typeof value !== "object") {
             return false;
@@ -2045,7 +2089,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
         pointer-events: none !important;
         opacity: 0 !important;
         transform: translateY(8px) scale(0.98) !important;
-        transition: opacity 700ms ease, transform 900ms ease !important;
+        transition: opacity 1100ms ease, transform 1100ms ease !important;
         z-index: 5 !important;
         filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.62)) !important;
       }
@@ -2053,6 +2097,16 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
       .${logoClass}.${visibleClass} {
         opacity: 1 !important;
         transform: translateY(0) scale(1) !important;
+      }
+
+      .${nativeLogoClass} {
+        opacity: 0 !important;
+        transition: none !important;
+      }
+
+      .${nativeLogoClass}.${visibleClass} {
+        opacity: 1 !important;
+        transition: opacity 1100ms ease !important;
       }
     `;
     }
@@ -2195,6 +2249,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 sourceAppId: this.currentSourceAppId,
                 selectedSteamMovieId: this.selectedSteamMovieId,
                 steamMovies: this.steamMovies,
+                lastPlaybackError: this.lastPlaybackError,
+                candidateIndex: this.currentCandidateIndex,
+                candidateCount: this.currentCandidateCount,
                 trimStartSeconds: this.currentAppId ? this.getTrimStart(this.currentAppId) : defaultTrimStartSeconds,
                 trimEndSeconds: this.currentAppId ? this.getTrimEnd(this.currentAppId) : defaultTrimEndSeconds
             };
@@ -2638,10 +2695,38 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             });
             video.addEventListener("timeupdate", () => this.loopBeforeOutro(video));
             let candidateIndex = 0;
+            let candidateAttempt = 0;
+            let readyCandidateIndex = -1;
+            const clearCandidateWatchdog = () => {
+                if (this.candidateWatchdog) {
+                    clearTimeout(this.candidateWatchdog);
+                    this.candidateWatchdog = undefined;
+                }
+            };
+            const advanceCandidate = (reason) => {
+                clearCandidateWatchdog();
+                if (this.fadeTimer) {
+                    clearTimeout(this.fadeTimer);
+                    this.fadeTimer = undefined;
+                }
+                this.lastPlaybackError = reason;
+                video.pause();
+                video.classList.remove(visibleClass);
+                host.classList.remove(readyClass);
+                candidateIndex += 1;
+                tryCandidate();
+            };
             const tryCandidate = () => {
+                clearCandidateWatchdog();
                 if (token !== this.requestToken || !video.isConnected) {
                     return;
                 }
+                const attempt = ++candidateAttempt;
+                readyCandidateIndex = -1;
+                video.classList.remove(visibleClass);
+                host.classList.remove(readyClass);
+                this.currentCandidateIndex = candidateIndex;
+                this.currentCandidateCount = candidates.length;
                 const source = candidates[candidateIndex];
                 if (!source) {
                     if (this.currentVideo === video) {
@@ -2656,6 +2741,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 }
                 if (source.includes(".mpd")) {
                     this.playDash(video, source, token).catch(() => {
+                        if (attempt !== candidateAttempt) {
+                            return;
+                        }
                         candidateIndex += 1;
                         tryCandidate();
                     });
@@ -2663,6 +2751,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 }
                 if (source.includes(".m3u8")) {
                     this.playHls(video, source, token).catch(() => {
+                        if (attempt !== candidateAttempt) {
+                            return;
+                        }
                         candidateIndex += 1;
                         tryCandidate();
                     });
@@ -2671,11 +2762,26 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 video.dataset.trailerheroLowResHint = source.includes("movie480") ? "1" : "";
                 video.src = source;
                 video.load();
+                this.candidateWatchdog = setTimeout(() => {
+                    if (attempt !== candidateAttempt || token !== this.requestToken || !video.isConnected || readyCandidateIndex === candidateIndex) {
+                        return;
+                    }
+                    advanceCandidate(`Steam video timeout: ${source}`);
+                }, 8000);
             };
             const onCanPlay = () => {
                 if (token !== this.requestToken) {
                     return;
                 }
+                clearCandidateWatchdog();
+                if (readyCandidateIndex === candidateIndex) {
+                    if (video.paused) {
+                        video.play().catch(() => undefined);
+                    }
+                    return;
+                }
+                readyCandidateIndex = candidateIndex;
+                this.lastPlaybackError = undefined;
                 host.classList.add(targetClass, readyClass);
                 this.currentVideo = video;
                 this.currentMediaAppId = appId;
@@ -2683,8 +2789,18 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 this.seekPastIntro(video);
                 this.applyLowResCrt(host, video);
                 video.play().catch(() => {
-                    this.status = rt("autoplayBlocked");
+                    window.setTimeout(() => {
+                        if (token !== this.requestToken || !video.isConnected || readyCandidateIndex !== candidateIndex) {
+                            return;
+                        }
+                        video.play().catch(() => {
+                            this.status = rt("autoplayBlocked");
+                        });
+                    }, 300);
                 });
+                if (this.fadeTimer) {
+                    clearTimeout(this.fadeTimer);
+                }
                 this.fadeTimer = setTimeout(() => {
                     if (token === this.requestToken && video.isConnected) {
                         this.seekPastIntro(video);
@@ -2699,10 +2815,10 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 if (token !== this.requestToken || this.currentVideo !== video) {
                     return;
                 }
-                candidateIndex += 1;
-                tryCandidate();
+                const mediaError = video.error;
+                advanceCandidate(`Steam video error ${mediaError?.code ?? 0}: ${mediaError?.message ?? "unknown media error"}`);
             };
-            video.addEventListener("canplay", onCanPlay, { once: true });
+            video.addEventListener("canplay", onCanPlay);
             video.addEventListener("error", onError);
             host.classList.add(targetClass);
             host.insertBefore(video, host.firstChild);
@@ -2997,26 +3113,65 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             }
             const source = domSource ?? steamLogo.urls[0] ?? "";
             if (!source) {
+                this.showNativeLogoAssist(appId, token);
                 return;
             }
             this.currentLogo?.remove();
             const logo = document.createElement("img");
             logo.className = logoClass;
-            logo.src = source;
             logo.alt = "";
             logo.draggable = false;
+            logo.decoding = "async";
             logo.setAttribute("aria-hidden", "true");
             if (steamLogo.position) {
                 logo.dataset.trailerheroLogoPosition = steamLogo.position.pinnedPosition;
                 logo.dataset.trailerheroLogoWidthPct = String(steamLogo.position.nWidthPct);
                 logo.dataset.trailerheroLogoHeightPct = String(steamLogo.position.nHeightPct);
             }
+            let revealQueued = false;
+            const reveal = () => {
+                if (revealQueued) {
+                    return;
+                }
+                revealQueued = true;
+                logo.getBoundingClientRect();
+                window.requestAnimationFrame(() => {
+                    window.setTimeout(() => {
+                        if (token === this.requestToken && logo.isConnected) {
+                            logo.classList.add(visibleClass);
+                        }
+                    }, 80);
+                });
+            };
+            logo.addEventListener("load", reveal, { once: true });
+            logo.addEventListener("error", () => {
+                if (this.currentLogo === logo) {
+                    this.currentLogo = undefined;
+                }
+                logo.remove();
+            }, { once: true });
+            logo.src = source;
             target.appendChild(logo);
             this.currentLogo = logo;
+            if (logo.complete && logo.naturalWidth > 0) {
+                reveal();
+            }
+        }
+        showNativeLogoAssist(appId, token) {
+            const nativeLogo = findNativeGameTitleElement(appId);
+            if (!nativeLogo || token !== this.requestToken) {
+                return;
+            }
+            this.currentNativeLogo?.classList.remove(nativeLogoClass, visibleClass);
+            nativeLogo.classList.add(nativeLogoClass);
+            this.currentNativeLogo = nativeLogo;
+            nativeLogo.getBoundingClientRect();
             window.requestAnimationFrame(() => {
-                if (token === this.requestToken && logo.isConnected) {
-                    logo.classList.add(visibleClass);
-                }
+                window.setTimeout(() => {
+                    if (token === this.requestToken && nativeLogo.isConnected) {
+                        nativeLogo.classList.add(visibleClass);
+                    }
+                }, 80);
             });
         }
         ensureYouTubePreconnect() {
@@ -3142,18 +3297,32 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             });
         }
         async fetchText(url) {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${url}`);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 9000);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${url}`);
+                }
+                return await response.text();
             }
-            return response.text();
+            finally {
+                clearTimeout(timeout);
+            }
         }
         async fetchArrayBuffer(url) {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${url}`);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 12000);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${url}`);
+                }
+                return await response.arrayBuffer();
             }
-            return response.arrayBuffer();
+            finally {
+                clearTimeout(timeout);
+            }
         }
         appendBuffer(sourceBuffer, data) {
             return new Promise((resolve, reject) => {
@@ -3360,11 +3529,16 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 clearTimeout(this.fadeTimer);
                 this.fadeTimer = undefined;
             }
+            if (this.candidateWatchdog) {
+                clearTimeout(this.candidateWatchdog);
+                this.candidateWatchdog = undefined;
+            }
             void this.restoreSteamLogoPosition();
             const objectUrl = this.currentVideo?.dataset.trailerheroObjectUrl;
             this.currentVideo?.remove();
             this.currentFrame?.remove();
             this.currentLogo?.remove();
+            this.currentNativeLogo?.classList.remove(nativeLogoClass, visibleClass);
             this.currentYouTubeMask?.remove();
             if (objectUrl) {
                 URL.revokeObjectURL(objectUrl);
@@ -3372,14 +3546,19 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.currentVideo = undefined;
             this.currentFrame = undefined;
             this.currentLogo = undefined;
+            this.currentNativeLogo = undefined;
             this.currentYouTubeMask = undefined;
             this.currentHost = undefined;
             this.currentMediaAppId = undefined;
             this.currentMediaSignature = undefined;
+            this.currentCandidateIndex = undefined;
+            this.currentCandidateCount = undefined;
             this.currentTarget?.classList.remove(targetClass, readyClass, crtClass);
             this.currentTarget = undefined;
             document.querySelectorAll(`.${videoClass}, .${youtubeMaskClass}, .${logoClass}`)
                 .forEach((element) => element.remove());
+            document.querySelectorAll(`.${nativeLogoClass}`)
+                .forEach((element) => element.classList.remove(nativeLogoClass, visibleClass));
             document.querySelectorAll(`.${targetClass}`)
                 .forEach((element) => element.classList.remove(targetClass, readyClass, crtClass));
         }
