@@ -16,6 +16,9 @@ if (api._version != API_VERSION) {
     console.warn(`[@decky/api] Requested API version ${API_VERSION} but the running loader only supports version ${api._version}. Some features may not work.`);
 }
 const callable = api.callable;
+const routerHook = api.routerHook;
+const openFilePicker = api.openFilePicker;
+const toaster = api.toaster;
 const definePlugin = (fn) => {
     return (...args) => {
         return fn(...args);
@@ -80,13 +83,21 @@ function IconBase(props) {
 }
 
 // THIS FILE IS AUTO GENERATED
+function FaArrowLeft (props) {
+  return GenIcon({"tag":"svg","attr":{"viewBox":"0 0 448 512"},"child":[{"tag":"path","attr":{"d":"M257.5 445.1l-22.2 22.2c-9.4 9.4-24.6 9.4-33.9 0L7 273c-9.4-9.4-9.4-24.6 0-33.9L201.4 44.7c9.4-9.4 24.6-9.4 33.9 0l22.2 22.2c9.5 9.5 9.3 25-.4 34.3L136.6 216H424c13.3 0 24 10.7 24 24v32c0 13.3-10.7 24-24 24H136.6l120.5 114.8c9.8 9.3 10 24.8.4 34.3z"},"child":[]}]})(props);
+}
 function FaFilm (props) {
   return GenIcon({"attr":{"viewBox":"0 0 512 512"},"child":[{"tag":"path","attr":{"d":"M488 64h-8v20c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12V64H96v20c0 6.6-5.4 12-12 12H44c-6.6 0-12-5.4-12-12V64h-8C10.7 64 0 74.7 0 88v336c0 13.3 10.7 24 24 24h8v-20c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v20h320v-20c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v20h8c13.3 0 24-10.7 24-24V88c0-13.3-10.7-24-24-24zM96 372c0 6.6-5.4 12-12 12H44c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40zm0-96c0 6.6-5.4 12-12 12H44c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40zm0-96c0 6.6-5.4 12-12 12H44c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40zm272 208c0 6.6-5.4 12-12 12H156c-6.6 0-12-5.4-12-12v-96c0-6.6 5.4-12 12-12h200c6.6 0 12 5.4 12 12v96zm0-168c0 6.6-5.4 12-12 12H156c-6.6 0-12-5.4-12-12v-96c0-6.6 5.4-12 12-12h200c6.6 0 12 5.4 12 12v96zm112 152c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40zm0-96c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40zm0-96c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40z"},"child":[]}]})(props);
 }
+function FaDownload (props) { return GenIcon({"tag":"svg","attr":{"viewBox":"0 0 512 512"},"child":[{"tag":"path","attr":{"d":"M216 0h80c13.3 0 24 10.7 24 24v168h87.7c17.8 0 26.7 21.5 14.1 34.1L269.7 378.3c-7.5 7.5-19.8 7.5-27.3 0L90.1 226.1c-12.6-12.6-3.7-34.1 14.1-34.1H192V24c0-13.3 10.7-24 24-24zm296 376v112c0 13.3-10.7 24-24 24H24c-13.3 0-24-10.7-24-24V376c0-13.3 10.7-24 24-24h146.7l49 49c20.1 20.1 52.5 20.1 72.6 0l49-49H488c13.3 0 24 10.7 24 24z"},"child":[]}]})(props); }
+function FaFolder (props) { return GenIcon({"tag":"svg","attr":{"viewBox":"0 0 512 512"},"child":[{"tag":"path","attr":{"d":"M464 128H272l-64-64H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V176c0-26.51-21.49-48-48-48z"},"child":[]}]})(props); }
+function FaPlay (props) { return GenIcon({"tag":"svg","attr":{"viewBox":"0 0 448 512"},"child":[{"tag":"path","attr":{"d":"M424.4 214.7L72.4 6.6C43.8-10.3 0 6.1 0 47.9V464c0 37.5 40.7 60.1 72.4 41.3l352-208c31.4-18.5 31.5-64.1 0-82.6z"},"child":[]}]})(props); }
+function FaPause (props) { return GenIcon({"tag":"svg","attr":{"viewBox":"0 0 448 512"},"child":[{"tag":"path","attr":{"d":"M144 479H48c-26.5 0-48-21.5-48-48V79c0-26.5 21.5-48 48-48h96c26.5 0 48 21.5 48 48v352c0 26.5-21.5 48-48 48zm304-48V79c0-26.5-21.5-48-48-48h-96c-26.5 0-48 21.5-48 48v352c0 26.5 21.5 48 48 48h96c26.5 0 48-21.5 48-48z"},"child":[]}]})(props); }
+function FaCheck (props) { return GenIcon({"tag":"svg","attr":{"viewBox":"0 0 512 512"},"child":[{"tag":"path","attr":{"d":"M173.898 439.404l-166.4-166.4c-9.997-9.997-9.997-26.206 0-36.204l36.203-36.204c9.997-9.998 26.207-9.998 36.204 0L192 312.69 432.095 72.596c9.997-9.997 26.207-9.997 36.204 0l36.203 36.204c9.997 9.997 9.997 26.206 0 36.204l-294.4 294.401c-9.998 9.997-26.207 9.997-36.204-.001z"},"child":[]}]})(props); }
 
 const SETTINGS_KEY = "trailerhero.settings.v1";
 const DEFAULT_SETTINGS = {
-    settingsVersion: 12,
+    settingsVersion: 13,
     enabled: true,
     delaySeconds: 3,
     opacity: 1,
@@ -98,6 +109,7 @@ const DEFAULT_SETTINGS = {
     youtubeEnabled: true,
     youtubeAutoSearch: true,
     youtubePlaybackMode: "direct",
+    defaultAudio: "theme",
     preferredSources: {},
     steamAppOverrides: {},
     steamMovieOverrides: {},
@@ -110,8 +122,8 @@ const DEFAULT_SETTINGS = {
 const DEFAULT_TRIM_START_SECONDS = 4;
 const DEFAULT_TRIM_END_SECONDS = 5;
 const OPACITY_OPTIONS = [0.65, 0.8, 0.92, 1];
-const QUALITY_OPTIONS = [720, 1080, 2160];
-const SOURCE_OPTIONS = ["auto", "steam", "youtube"];
+const QUALITY_OPTIONS = [720, 1080, 1440, 2160];
+const SOURCE_OPTIONS = ["auto", "steam", "youtube", "local"];
 const CRT_OPTIONS = ["auto", "on", "off"];
 const BACKEND_TIMEOUT_MS = 18000;
 const RUNTIME_MISSING_SCRIPT = "window.__trailerHeroRuntime?.snapshot?.() ?? { status: 'TrailerHero runtime missing', runtimeMissing: true }";
@@ -121,6 +133,19 @@ const resolveSteamAppId = callable("resolve_steam_app_id");
 const searchYouTubeTrailer = callable("search_youtube_trailer");
 const searchYouTubeVideos = callable("search_youtube_videos");
 const resolveYouTubeStreams = callable("resolve_youtube_streams");
+const getSteamTrailer = callable("get_steam_trailer");
+const getLocalTrailer = callable("get_local_trailer");
+const getSteamTrailerPreview = callable("get_steam_trailer_preview");
+const getSteamTrailerPreviewStatus = callable("get_steam_trailer_preview_status");
+const getYouTubeTrailerPreview = callable("get_youtube_trailer_preview");
+const importLocalTrailer = callable("import_local_trailer");
+const startTrailerDownload = callable("start_trailer_download");
+const startBulkDownload = callable("start_bulk_download");
+const getTrailerJob = callable("get_trailer_job");
+const cancelTrailerJob = callable("cancel_trailer_job");
+const deleteLocalTrailer = callable("delete_local_trailer");
+const deleteAllLocalTrailers = callable("delete_all_local_trailers");
+const cleanupUnassignedTrailers = callable("cleanup_unassigned_trailers");
 function parseSettings() {
     try {
         const raw = localStorage.getItem(SETTINGS_KEY);
@@ -156,10 +181,11 @@ function parseSettings() {
                 ? parsed.youtubeAutoSearch
                 : DEFAULT_SETTINGS.youtubeAutoSearch,
             youtubePlaybackMode: DEFAULT_SETTINGS.youtubePlaybackMode,
+            defaultAudio: parsed.defaultAudio === "trailer" ? "trailer" : "theme",
             preferredSources: parsed.preferredSources && typeof parsed.preferredSources === "object"
                 ? Object.fromEntries(Object.entries(parsed.preferredSources)
                     .filter(([appid, source]) => (/^\d+$/.test(appid) &&
-                    (source === "auto" || source === "steam" || source === "youtube"))))
+                    (source === "auto" || source === "steam" || source === "youtube" || source === "local"))))
                 : {},
             steamAppOverrides: parsed.steamAppOverrides && typeof parsed.steamAppOverrides === "object"
                 ? Object.fromEntries(Object.entries(parsed.steamAppOverrides)
@@ -213,6 +239,30 @@ const TRANSLATIONS = {
         connectingToTab: "Connecting to {tab}...",
         crtAutomatic: "Automatic CRT",
         crtGame: "Game CRT: {value}",
+        defaultAudio: "Default audio",
+        defaultAudioTheme: "Game music theme",
+        defaultAudioTrailer: "Trailer audio",
+        back: "Back",
+        globalSettings: "Global settings",
+        gameOptions: "Game options",
+        localLibrary: "Trailer mode",
+        maintenance: "Maintenance",
+        refreshPreview: "Restart preview",
+        noPreview: "No trailer preview is available for this game.",
+        downloadProgress: "Downloaded {current}/{total}",
+        preparingDownload: "Preparing trailer…",
+        downloadingPercent: "Downloading: {percent}%",
+        processingDownload: "Processing video…",
+        play: "Play",
+        pause: "Pause",
+        downloadStarted: "Download started: {title}",
+        downloadAssigned: "Downloaded and assigned: {title}",
+        importAssigned: "Imported and assigned: {title}",
+        localDeleted: "Saved trailer deleted: {title}",
+        bulkDone: "Bulk complete — succeeded: {ok}, skipped: {skipped}, failed: {failed}",
+        cancelDownload: "Cancel download",
+        cancel: "Cancel",
+        confirm: "Confirm",
         delay: "Delay: {seconds}s",
         disabled: "Disabled",
         disabledForCurrentGame: "Disabled for this game",
@@ -222,8 +272,12 @@ const TRANSLATIONS = {
         youtubeGlobal: "Enable YouTube videos",
         youtubeSearchQuery: "YouTube search query",
         searchYouTube: "Search YouTube",
+        search: "Search",
         youtubeResults: "YouTube results",
         useSelectedYouTubeResult: "Use selected YouTube result",
+        selectTrailer: "Select",
+        selectedTrailer: "Selected",
+        download: "Download",
         invalidSteamAppId: "Invalid Steam AppID",
         invalidTrims: "Valid trims: 0-60 seconds",
         invalidYouTubeLink: "Invalid YouTube link",
@@ -252,6 +306,7 @@ const TRANSLATIONS = {
         sourceAuto: "Automatic",
         sourceSteam: "Steam",
         sourceYouTube: "YouTube",
+        sourceLocal: "Local trailer",
         steamAppIdSource: "Steam AppID source",
         steamQuality: "Quality: {quality}p",
         steamTrailer: "Steam trailer",
@@ -265,6 +320,11 @@ const TRANSLATIONS = {
         statusHeroNotFound: "App {appId}: hero not found",
         title: "TrailerHero",
         trailerActive: "Trailer active",
+        trailerSource: "Trailer source",
+        downloadActiveTrailer: "Download active trailer",
+        localFile: "Local file",
+        trailerAudio: "Trailer audio",
+        themeDeckAudio: "Game music theme",
         trailerLabel: "Trailer: {name}",
         trimEnd: "Trim end sec",
         trimStart: "Trim start sec",
@@ -280,10 +340,31 @@ const TRANSLATIONS = {
         youtubeTrailerActive: "YouTube trailer active",
         youtubeQuality: "YouTube quality: {value}",
         youtubeBulkReassign: "Reassign YouTube links for all non-Steam games",
-        youtubeBulkConfirm: "sei sicuro?",
+        youtubeBulkConfirm: "Reassign YouTube links for every non-Steam game?",
         youtubeBulkNoGames: "No non-Steam games found.",
         youtubeBulkProgress: "Reassigning YouTube links {current}/{total}: {title}",
-        youtubeBulkDone: "YouTube reassigned: {assigned}/{total}. Failed: {failed}"
+        youtubeBulkDone: "YouTube reassigned: {assigned}/{total}. Failed: {failed}",
+        gameSettings: "Trailer settings",
+        gameSettingsHint: "Choose, preview or save the trailer for this game.",
+        streaming: "Streaming",
+        savedLocal: "Saved locally",
+        previewTrailer: "Preview trailer",
+        useStreaming: "Use streaming trailer",
+        downloadTrailer: "Download and use this trailer",
+        importTrailer: "Import a video file",
+        deleteLocalTrailer: "Delete saved trailer",
+        deleteFile: "Delete file",
+        downloadAll: "Download all trailers",
+        deleteAll: "Delete all saved trailers",
+        cleanupTrailers: "Delete unassigned trailer files",
+        currentStorage: "Storage: {value}",
+        qualityPreset: "Download quality: {quality}p",
+        downloadRunning: "Downloading trailers...",
+        noGameForSettings: "Open these settings from a game's Options menu.",
+        operationComplete: "Operation completed",
+        confirmDeleteAll: "Delete every trailer saved by TrailerHero?",
+        confirmCleanup: "Delete local trailer files that are not assigned to a game?"
+        ,confirmDeleteLocal: "Delete the saved trailer for this game?"
     },
     it: {
         active: "Attivo",
@@ -298,6 +379,30 @@ const TRANSLATIONS = {
         connectingToTab: "Collegamento a {tab}...",
         crtAutomatic: "CRT automatico",
         crtGame: "CRT gioco: {value}",
+        defaultAudio: "Audio predefinito",
+        defaultAudioTheme: "Tema musicale del gioco",
+        defaultAudioTrailer: "Audio del trailer",
+        back: "Indietro",
+        globalSettings: "Impostazioni globali",
+        gameOptions: "Opzioni del gioco",
+        localLibrary: "Modalità trailer",
+        maintenance: "Manutenzione",
+        refreshPreview: "Riavvia anteprima",
+        noPreview: "Nessuna anteprima trailer disponibile per questo gioco.",
+        downloadProgress: "Scaricati {current}/{total}",
+        preparingDownload: "Preparazione trailer…",
+        downloadingPercent: "Download: {percent}%",
+        processingDownload: "Elaborazione video…",
+        play: "Riproduci",
+        pause: "Pausa",
+        downloadStarted: "Download avviato: {title}",
+        downloadAssigned: "Scaricato e assegnato: {title}",
+        importAssigned: "Importato e assegnato: {title}",
+        localDeleted: "Trailer locale eliminato: {title}",
+        bulkDone: "Operazione completata — riusciti: {ok}, saltati: {skipped}, falliti: {failed}",
+        cancelDownload: "Annulla download",
+        cancel: "Annulla",
+        confirm: "Conferma",
         delay: "Delay: {seconds}s",
         disabled: "Disattivato",
         disabledForCurrentGame: "Disattivato per questo gioco",
@@ -307,6 +412,7 @@ const TRANSLATIONS = {
         youtubeGlobal: "Abilita video YouTube",
         youtubeSearchQuery: "Query ricerca YouTube",
         searchYouTube: "Cerca su YouTube",
+        search: "Cerca",
         youtubeResults: "Risultati YouTube",
         useSelectedYouTubeResult: "Usa risultato YouTube selezionato",
         invalidSteamAppId: "Steam AppID non valido",
@@ -337,6 +443,7 @@ const TRANSLATIONS = {
         sourceAuto: "Automatico",
         sourceSteam: "Steam",
         sourceYouTube: "YouTube",
+        sourceLocal: "Trailer locale",
         steamAppIdSource: "Steam AppID sorgente",
         steamQuality: "Qualità: {quality}p",
         steamTrailer: "Steam trailer",
@@ -350,6 +457,14 @@ const TRANSLATIONS = {
         statusHeroNotFound: "App {appId}: hero non trovata",
         title: "TrailerHero",
         trailerActive: "Trailer attivo",
+        trailerSource: "Sorgente del trailer",
+        downloadActiveTrailer: "Scarica trailer attivo",
+        localFile: "File locale",
+        selectTrailer: "Seleziona",
+        selectedTrailer: "Selezionato",
+        download: "Scarica",
+        trailerAudio: "Audio trailer",
+        themeDeckAudio: "Tema musicale del gioco",
         trailerLabel: "Trailer: {name}",
         trimEnd: "Taglio fine sec",
         trimStart: "Taglio inizio sec",
@@ -363,12 +478,33 @@ const TRANSLATIONS = {
         youtubeSearchError: "Errore ricerca YouTube",
         youtubeTrailer: "YouTube trailer",
         youtubeTrailerActive: "Trailer YouTube attivo",
-        youtubeQuality: "Qualita YouTube: {value}",
+        youtubeQuality: "Qualità YouTube: {value}",
         youtubeBulkReassign: "Riassegna link YouTube a tutti i giochi non-Steam",
-        youtubeBulkConfirm: "sei sicuro?",
+        youtubeBulkConfirm: "Riassegnare i link YouTube a tutti i giochi non-Steam?",
         youtubeBulkNoGames: "Nessun gioco non-Steam trovato.",
         youtubeBulkProgress: "Riassegno link YouTube {current}/{total}: {title}",
-        youtubeBulkDone: "YouTube riassegnati: {assigned}/{total}. Falliti: {failed}"
+        youtubeBulkDone: "YouTube riassegnati: {assigned}/{total}. Falliti: {failed}",
+        gameSettings: "Impostazioni trailer",
+        gameSettingsHint: "Scegli, prova o salva il trailer di questo gioco.",
+        streaming: "Streaming",
+        savedLocal: "Salvato in locale",
+        previewTrailer: "Anteprima trailer",
+        useStreaming: "Usa il trailer in streaming",
+        downloadTrailer: "Scarica e usa questo trailer",
+        importTrailer: "Importa un file video",
+        deleteLocalTrailer: "Elimina il trailer salvato",
+        deleteFile: "Elimina file",
+        downloadAll: "Scarica tutti i trailer",
+        deleteAll: "Elimina tutti i trailer salvati",
+        cleanupTrailers: "Elimina i trailer non assegnati",
+        currentStorage: "Archiviazione: {value}",
+        qualityPreset: "Qualità download: {quality}p",
+        downloadRunning: "Download dei trailer in corso...",
+        noGameForSettings: "Apri queste impostazioni dal menu Opzioni di un gioco.",
+        operationComplete: "Operazione completata",
+        confirmDeleteAll: "Eliminare tutti i trailer salvati da TrailerHero?",
+        confirmCleanup: "Eliminare i file trailer locali non assegnati ad alcun gioco?"
+        ,confirmDeleteLocal: "Eliminare il trailer salvato per questo gioco?"
     },
     fr: {
         active: "Activé",
@@ -426,6 +562,8 @@ const TRANSLATIONS = {
         statusHeroNotFound: "App {appId} : hero introuvable",
         title: "TrailerHero",
         trailerActive: "Trailer actif",
+        trailerAudio: "Audio du trailer",
+        themeDeckAudio: "Thème musical du jeu",
         trailerLabel: "Trailer : {name}",
         trimEnd: "Découpe fin sec",
         trimStart: "Découpe début sec",
@@ -438,7 +576,56 @@ const TRANSLATIONS = {
         youtubeSearchError: "Erreur de recherche YouTube",
         youtubeTrailer: "Trailer YouTube",
         youtubeTrailerActive: "Trailer YouTube actif",
-        youtubeQuality: "Qualité YouTube : {value}"
+        youtubeQuality: "Qualité YouTube : {value}",
+        defaultAudio: "Audio par défaut",
+        defaultAudioTheme: "Musique du jeu",
+        defaultAudioTrailer: "Audio du trailer",
+        back: "Retour",
+        globalSettings: "Paramètres généraux",
+        gameOptions: "Options du jeu",
+        localLibrary: "Mode du trailer",
+        maintenance: "Maintenance",
+        refreshPreview: "Relancer l'aperçu",
+        noPreview: "Aucun aperçu n'est disponible pour ce jeu.",
+        downloadProgress: "Téléchargés : {current}/{total}",
+        cancelDownload: "Annuler le téléchargement",
+        cancel: "Annuler",
+        confirm: "Confirmer",
+        youtubeGlobal: "Activer les vidéos YouTube",
+        youtubeSearchQuery: "Recherche YouTube",
+        searchYouTube: "Rechercher sur YouTube",
+        youtubeResults: "Résultats YouTube",
+        useSelectedYouTubeResult: "Utiliser le résultat YouTube sélectionné",
+        resolvingYouTubeDirect: "Préparation du flux YouTube direct",
+        searchingSteamStore: "Recherche d'un trailer Steam pour {title}",
+        sourceLocal: "Trailer local",
+        steamAutoFound: "Steam trouvé : {title}",
+        steamAutoNoMatch: "Recherche Steam automatique : aucun trailer fiable",
+        youtubeDirectUnavailable: "Flux YouTube direct indisponible ; utilisation du lecteur intégré",
+        youtubeBulkReassign: "Réattribuer les liens YouTube des jeux non-Steam",
+        youtubeBulkConfirm: "Réattribuer les liens YouTube de tous les jeux non-Steam ?",
+        youtubeBulkNoGames: "Aucun jeu non-Steam trouvé.",
+        youtubeBulkProgress: "Réattribution des liens YouTube {current}/{total} : {title}",
+        youtubeBulkDone: "Liens YouTube réattribués : {assigned}/{total}. Échecs : {failed}",
+        gameSettings: "Paramètres du trailer",
+        gameSettingsHint: "Choisissez, prévisualisez ou enregistrez le trailer de ce jeu.",
+        streaming: "Lecture en ligne",
+        savedLocal: "Enregistré en local",
+        previewTrailer: "Aperçu du trailer",
+        useStreaming: "Utiliser le trailer en ligne",
+        downloadTrailer: "Télécharger et utiliser ce trailer",
+        importTrailer: "Importer un fichier vidéo",
+        deleteLocalTrailer: "Supprimer le trailer enregistré",
+        downloadAll: "Télécharger tous les trailers",
+        deleteAll: "Supprimer tous les trailers enregistrés",
+        cleanupTrailers: "Supprimer les fichiers non attribués",
+        currentStorage: "Stockage : {value}",
+        qualityPreset: "Qualité du téléchargement : {quality}p",
+        downloadRunning: "Téléchargement des trailers...",
+        noGameForSettings: "Ouvrez ces paramètres depuis le menu Options d'un jeu.",
+        operationComplete: "Opération terminée",
+        confirmDeleteAll: "Supprimer tous les trailers enregistrés par TrailerHero ?",
+        confirmCleanup: "Supprimer les fichiers locaux qui ne sont attribués à aucun jeu ?"
     },
     es: {
         active: "Activo",
@@ -496,6 +683,8 @@ const TRANSLATIONS = {
         statusHeroNotFound: "App {appId}: hero no encontrada",
         title: "TrailerHero",
         trailerActive: "Tráiler activo",
+        trailerAudio: "Audio del tráiler",
+        themeDeckAudio: "Tema musical del juego",
         trailerLabel: "Tráiler: {name}",
         trimEnd: "Recorte final seg",
         trimStart: "Recorte inicio seg",
@@ -508,7 +697,56 @@ const TRANSLATIONS = {
         youtubeSearchError: "Error de búsqueda en YouTube",
         youtubeTrailer: "Tráiler de YouTube",
         youtubeTrailerActive: "Tráiler YouTube activo",
-        youtubeQuality: "Calidad YouTube: {value}"
+        youtubeQuality: "Calidad YouTube: {value}",
+        defaultAudio: "Audio predeterminado",
+        defaultAudioTheme: "Música del juego",
+        defaultAudioTrailer: "Audio del tráiler",
+        back: "Atrás",
+        globalSettings: "Ajustes generales",
+        gameOptions: "Opciones del juego",
+        localLibrary: "Modo del tráiler",
+        maintenance: "Mantenimiento",
+        refreshPreview: "Reiniciar vista previa",
+        noPreview: "No hay vista previa disponible para este juego.",
+        downloadProgress: "Descargados {current}/{total}",
+        cancelDownload: "Cancelar descarga",
+        cancel: "Cancelar",
+        confirm: "Confirmar",
+        youtubeGlobal: "Activar vídeos de YouTube",
+        youtubeSearchQuery: "Búsqueda de YouTube",
+        searchYouTube: "Buscar en YouTube",
+        youtubeResults: "Resultados de YouTube",
+        useSelectedYouTubeResult: "Usar el resultado de YouTube seleccionado",
+        resolvingYouTubeDirect: "Preparando la emisión directa de YouTube",
+        searchingSteamStore: "Buscando tráiler de Steam para {title}",
+        sourceLocal: "Tráiler local",
+        steamAutoFound: "Steam encontrado: {title}",
+        steamAutoNoMatch: "Búsqueda automática de Steam: no se encontró un tráiler fiable",
+        youtubeDirectUnavailable: "La emisión directa de YouTube no está disponible; se usará el reproductor integrado",
+        youtubeBulkReassign: "Reasignar enlaces de YouTube para juegos que no son de Steam",
+        youtubeBulkConfirm: "¿Reasignar los enlaces de YouTube de todos los juegos que no son de Steam?",
+        youtubeBulkNoGames: "No se encontraron juegos que no sean de Steam.",
+        youtubeBulkProgress: "Reasignando enlaces de YouTube {current}/{total}: {title}",
+        youtubeBulkDone: "YouTube reasignado: {assigned}/{total}. Fallidos: {failed}",
+        gameSettings: "Ajustes del tráiler",
+        gameSettingsHint: "Elige, previsualiza o guarda el tráiler de este juego.",
+        streaming: "Streaming",
+        savedLocal: "Guardado localmente",
+        previewTrailer: "Vista previa del tráiler",
+        useStreaming: "Usar el tráiler en streaming",
+        downloadTrailer: "Descargar y usar este tráiler",
+        importTrailer: "Importar un archivo de vídeo",
+        deleteLocalTrailer: "Eliminar el tráiler guardado",
+        downloadAll: "Descargar todos los tráileres",
+        deleteAll: "Eliminar todos los tráileres guardados",
+        cleanupTrailers: "Eliminar archivos de tráiler sin asignar",
+        currentStorage: "Almacenamiento: {value}",
+        qualityPreset: "Calidad de descarga: {quality}p",
+        downloadRunning: "Descargando tráileres...",
+        noGameForSettings: "Abre estos ajustes desde el menú Opciones de un juego.",
+        operationComplete: "Operación completada",
+        confirmDeleteAll: "¿Eliminar todos los tráileres guardados por TrailerHero?",
+        confirmCleanup: "¿Eliminar los archivos locales que no estén asignados a ningún juego?"
     },
     pt: {
         active: "Ativo",
@@ -566,6 +804,8 @@ const TRANSLATIONS = {
         statusHeroNotFound: "App {appId}: hero não encontrada",
         title: "TrailerHero",
         trailerActive: "Trailer ativo",
+        trailerAudio: "Áudio do trailer",
+        themeDeckAudio: "Tema musical do jogo",
         trailerLabel: "Trailer: {name}",
         trimEnd: "Corte final seg",
         trimStart: "Corte inicial seg",
@@ -578,7 +818,56 @@ const TRANSLATIONS = {
         youtubeSearchError: "Erro na pesquisa do YouTube",
         youtubeTrailer: "Trailer YouTube",
         youtubeTrailerActive: "Trailer YouTube ativo",
-        youtubeQuality: "Qualidade YouTube: {value}"
+        youtubeQuality: "Qualidade YouTube: {value}",
+        defaultAudio: "Áudio predefinido",
+        defaultAudioTheme: "Música do jogo",
+        defaultAudioTrailer: "Áudio do trailer",
+        back: "Voltar",
+        globalSettings: "Definições gerais",
+        gameOptions: "Opções do jogo",
+        localLibrary: "Modo do trailer",
+        maintenance: "Manutenção",
+        refreshPreview: "Reiniciar pré-visualização",
+        noPreview: "Não está disponível uma pré-visualização para este jogo.",
+        downloadProgress: "Transferidos {current}/{total}",
+        cancelDownload: "Cancelar transferência",
+        cancel: "Cancelar",
+        confirm: "Confirmar",
+        youtubeGlobal: "Ativar vídeos do YouTube",
+        youtubeSearchQuery: "Pesquisa no YouTube",
+        searchYouTube: "Pesquisar no YouTube",
+        youtubeResults: "Resultados do YouTube",
+        useSelectedYouTubeResult: "Usar o resultado do YouTube selecionado",
+        resolvingYouTubeDirect: "A preparar a transmissão direta do YouTube",
+        searchingSteamStore: "A pesquisar trailer Steam para {title}",
+        sourceLocal: "Trailer local",
+        steamAutoFound: "Steam encontrado: {title}",
+        steamAutoNoMatch: "Pesquisa automática Steam: nenhum trailer fiável encontrado",
+        youtubeDirectUnavailable: "Transmissão direta do YouTube indisponível; será usado o leitor incorporado",
+        youtubeBulkReassign: "Reatribuir ligações do YouTube a jogos que não são Steam",
+        youtubeBulkConfirm: "Reatribuir as ligações do YouTube de todos os jogos que não são Steam?",
+        youtubeBulkNoGames: "Não foram encontrados jogos que não sejam Steam.",
+        youtubeBulkProgress: "A reatribuir ligações do YouTube {current}/{total}: {title}",
+        youtubeBulkDone: "YouTube reatribuído: {assigned}/{total}. Falhas: {failed}",
+        gameSettings: "Definições do trailer",
+        gameSettingsHint: "Escolha, pré-visualize ou guarde o trailer deste jogo.",
+        streaming: "Transmissão",
+        savedLocal: "Guardado localmente",
+        previewTrailer: "Pré-visualizar trailer",
+        useStreaming: "Usar o trailer em transmissão",
+        downloadTrailer: "Transferir e usar este trailer",
+        importTrailer: "Importar um ficheiro de vídeo",
+        deleteLocalTrailer: "Eliminar o trailer guardado",
+        downloadAll: "Transferir todos os trailers",
+        deleteAll: "Eliminar todos os trailers guardados",
+        cleanupTrailers: "Eliminar ficheiros de trailer não atribuídos",
+        currentStorage: "Armazenamento: {value}",
+        qualityPreset: "Qualidade da transferência: {quality}p",
+        downloadRunning: "A transferir trailers...",
+        noGameForSettings: "Abra estas definições no menu Opções de um jogo.",
+        operationComplete: "Operação concluída",
+        confirmDeleteAll: "Eliminar todos os trailers guardados pelo TrailerHero?",
+        confirmCleanup: "Eliminar os ficheiros locais que não estão atribuídos a nenhum jogo?"
     },
     ptBR: {
         active: "Ativo",
@@ -636,6 +925,8 @@ const TRANSLATIONS = {
         statusHeroNotFound: "App {appId}: hero não encontrada",
         title: "TrailerHero",
         trailerActive: "Trailer ativo",
+        trailerAudio: "Áudio do trailer",
+        themeDeckAudio: "Tema musical do jogo",
         trailerLabel: "Trailer: {name}",
         trimEnd: "Corte final seg",
         trimStart: "Corte inicial seg",
@@ -648,7 +939,56 @@ const TRANSLATIONS = {
         youtubeSearchError: "Erro na busca do YouTube",
         youtubeTrailer: "Trailer YouTube",
         youtubeTrailerActive: "Trailer YouTube ativo",
-        youtubeQuality: "Qualidade YouTube: {value}"
+        youtubeQuality: "Qualidade YouTube: {value}",
+        defaultAudio: "Áudio padrão",
+        defaultAudioTheme: "Música do jogo",
+        defaultAudioTrailer: "Áudio do trailer",
+        back: "Voltar",
+        globalSettings: "Configurações gerais",
+        gameOptions: "Opções do jogo",
+        localLibrary: "Modo do trailer",
+        maintenance: "Manutenção",
+        refreshPreview: "Reiniciar prévia",
+        noPreview: "Não há prévia disponível para este jogo.",
+        downloadProgress: "Baixados {current}/{total}",
+        cancelDownload: "Cancelar download",
+        cancel: "Cancelar",
+        confirm: "Confirmar",
+        youtubeGlobal: "Ativar vídeos do YouTube",
+        youtubeSearchQuery: "Pesquisa no YouTube",
+        searchYouTube: "Pesquisar no YouTube",
+        youtubeResults: "Resultados do YouTube",
+        useSelectedYouTubeResult: "Usar o resultado do YouTube selecionado",
+        resolvingYouTubeDirect: "Preparando a transmissão direta do YouTube",
+        searchingSteamStore: "Procurando trailer da Steam para {title}",
+        sourceLocal: "Trailer local",
+        steamAutoFound: "Steam encontrado: {title}",
+        steamAutoNoMatch: "Busca automática na Steam: nenhum trailer confiável encontrado",
+        youtubeDirectUnavailable: "Transmissão direta do YouTube indisponível; será usado o player incorporado",
+        youtubeBulkReassign: "Reatribuir links do YouTube aos jogos que não são da Steam",
+        youtubeBulkConfirm: "Reatribuir os links do YouTube de todos os jogos que não são da Steam?",
+        youtubeBulkNoGames: "Nenhum jogo que não seja da Steam foi encontrado.",
+        youtubeBulkProgress: "Reatribuindo links do YouTube {current}/{total}: {title}",
+        youtubeBulkDone: "YouTube reatribuído: {assigned}/{total}. Falhas: {failed}",
+        gameSettings: "Configurações do trailer",
+        gameSettingsHint: "Escolha, visualize ou salve o trailer deste jogo.",
+        streaming: "Streaming",
+        savedLocal: "Salvo localmente",
+        previewTrailer: "Prévia do trailer",
+        useStreaming: "Usar o trailer por streaming",
+        downloadTrailer: "Baixar e usar este trailer",
+        importTrailer: "Importar um arquivo de vídeo",
+        deleteLocalTrailer: "Excluir o trailer salvo",
+        downloadAll: "Baixar todos os trailers",
+        deleteAll: "Excluir todos os trailers salvos",
+        cleanupTrailers: "Excluir arquivos de trailer não atribuídos",
+        currentStorage: "Armazenamento: {value}",
+        qualityPreset: "Qualidade do download: {quality}p",
+        downloadRunning: "Baixando trailers...",
+        noGameForSettings: "Abra estas configurações no menu Opções de um jogo.",
+        operationComplete: "Operação concluída",
+        confirmDeleteAll: "Excluir todos os trailers salvos pelo TrailerHero?",
+        confirmCleanup: "Excluir os arquivos locais que não estão atribuídos a nenhum jogo?"
     },
     de: {
         active: "Aktiviert",
@@ -706,6 +1046,8 @@ const TRANSLATIONS = {
         statusHeroNotFound: "App {appId}: Hero nicht gefunden",
         title: "TrailerHero",
         trailerActive: "Trailer aktiv",
+        trailerAudio: "Trailer-Audio",
+        themeDeckAudio: "Musikthema des Spiels",
         trailerLabel: "Trailer: {name}",
         trimEnd: "Ende schneiden Sek.",
         trimStart: "Start schneiden Sek.",
@@ -718,7 +1060,56 @@ const TRANSLATIONS = {
         youtubeSearchError: "Fehler bei der YouTube-Suche",
         youtubeTrailer: "YouTube-Trailer",
         youtubeTrailerActive: "YouTube-Trailer aktiv",
-        youtubeQuality: "YouTube-Qualität: {value}"
+        youtubeQuality: "YouTube-Qualität: {value}",
+        defaultAudio: "Standardaudio",
+        defaultAudioTheme: "Spielmusik",
+        defaultAudioTrailer: "Trailer-Audio",
+        back: "Zurück",
+        globalSettings: "Allgemeine Einstellungen",
+        gameOptions: "Spieloptionen",
+        localLibrary: "Trailer-Modus",
+        maintenance: "Wartung",
+        refreshPreview: "Vorschau neu starten",
+        noPreview: "Für dieses Spiel ist keine Vorschau verfügbar.",
+        downloadProgress: "Heruntergeladen: {current}/{total}",
+        cancelDownload: "Download abbrechen",
+        cancel: "Abbrechen",
+        confirm: "Bestätigen",
+        youtubeGlobal: "YouTube-Videos aktivieren",
+        youtubeSearchQuery: "YouTube-Suche",
+        searchYouTube: "Auf YouTube suchen",
+        youtubeResults: "YouTube-Ergebnisse",
+        useSelectedYouTubeResult: "Ausgewähltes YouTube-Ergebnis verwenden",
+        resolvingYouTubeDirect: "Direkten YouTube-Stream vorbereiten",
+        searchingSteamStore: "Steam-Trailer für {title} wird gesucht",
+        sourceLocal: "Lokaler Trailer",
+        steamAutoFound: "Steam gefunden: {title}",
+        steamAutoNoMatch: "Automatische Steam-Suche: kein verlässlicher Trailer gefunden",
+        youtubeDirectUnavailable: "Direkter YouTube-Stream nicht verfügbar; der eingebettete Player wird verwendet",
+        youtubeBulkReassign: "YouTube-Links für Nicht-Steam-Spiele neu zuweisen",
+        youtubeBulkConfirm: "YouTube-Links für alle Nicht-Steam-Spiele neu zuweisen?",
+        youtubeBulkNoGames: "Keine Nicht-Steam-Spiele gefunden.",
+        youtubeBulkProgress: "YouTube-Links werden neu zugewiesen {current}/{total}: {title}",
+        youtubeBulkDone: "YouTube neu zugewiesen: {assigned}/{total}. Fehlgeschlagen: {failed}",
+        gameSettings: "Trailer-Einstellungen",
+        gameSettingsHint: "Trailer für dieses Spiel auswählen, ansehen oder speichern.",
+        streaming: "Streaming",
+        savedLocal: "Lokal gespeichert",
+        previewTrailer: "Trailer-Vorschau",
+        useStreaming: "Streaming-Trailer verwenden",
+        downloadTrailer: "Diesen Trailer herunterladen und verwenden",
+        importTrailer: "Videodatei importieren",
+        deleteLocalTrailer: "Gespeicherten Trailer löschen",
+        downloadAll: "Alle Trailer herunterladen",
+        deleteAll: "Alle gespeicherten Trailer löschen",
+        cleanupTrailers: "Nicht zugewiesene Trailer-Dateien löschen",
+        currentStorage: "Speicher: {value}",
+        qualityPreset: "Download-Qualität: {quality}p",
+        downloadRunning: "Trailer werden heruntergeladen...",
+        noGameForSettings: "Öffne diese Einstellungen über das Optionsmenü eines Spiels.",
+        operationComplete: "Vorgang abgeschlossen",
+        confirmDeleteAll: "Alle von TrailerHero gespeicherten Trailer löschen?",
+        confirmCleanup: "Lokale Trailer-Dateien löschen, die keinem Spiel zugewiesen sind?"
     },
     nl: {
         active: "Ingeschakeld",
@@ -776,6 +1167,8 @@ const TRANSLATIONS = {
         statusHeroNotFound: "App {appId}: hero niet gevonden",
         title: "TrailerHero",
         trailerActive: "Trailer actief",
+        trailerAudio: "Traileraudio",
+        themeDeckAudio: "Muziekthema van de game",
         trailerLabel: "Trailer: {name}",
         trimEnd: "Trim einde sec",
         trimStart: "Trim begin sec",
@@ -788,7 +1181,56 @@ const TRANSLATIONS = {
         youtubeSearchError: "YouTube-zoekfout",
         youtubeTrailer: "YouTube-trailer",
         youtubeTrailerActive: "YouTube-trailer actief",
-        youtubeQuality: "YouTube-kwaliteit: {value}"
+        youtubeQuality: "YouTube-kwaliteit: {value}",
+        defaultAudio: "Standaardaudio",
+        defaultAudioTheme: "Gamemuziek",
+        defaultAudioTrailer: "Traileraudio",
+        back: "Terug",
+        globalSettings: "Algemene instellingen",
+        gameOptions: "Game-opties",
+        localLibrary: "Trailermodus",
+        maintenance: "Onderhoud",
+        refreshPreview: "Voorbeeld opnieuw starten",
+        noPreview: "Voor deze game is geen voorbeeld beschikbaar.",
+        downloadProgress: "Gedownload {current}/{total}",
+        cancelDownload: "Download annuleren",
+        cancel: "Annuleren",
+        confirm: "Bevestigen",
+        youtubeGlobal: "YouTube-video's inschakelen",
+        youtubeSearchQuery: "Zoekopdracht voor YouTube",
+        searchYouTube: "Zoeken op YouTube",
+        youtubeResults: "YouTube-resultaten",
+        useSelectedYouTubeResult: "Geselecteerd YouTube-resultaat gebruiken",
+        resolvingYouTubeDirect: "Directe YouTube-stream voorbereiden",
+        searchingSteamStore: "Steam-trailer zoeken voor {title}",
+        sourceLocal: "Lokale trailer",
+        steamAutoFound: "Steam gevonden: {title}",
+        steamAutoNoMatch: "Automatisch zoeken op Steam: geen betrouwbare trailer gevonden",
+        youtubeDirectUnavailable: "Directe YouTube-stream niet beschikbaar; de ingebouwde speler wordt gebruikt",
+        youtubeBulkReassign: "YouTube-links opnieuw toewijzen aan niet-Steam-games",
+        youtubeBulkConfirm: "YouTube-links van alle niet-Steam-games opnieuw toewijzen?",
+        youtubeBulkNoGames: "Geen niet-Steam-games gevonden.",
+        youtubeBulkProgress: "YouTube-links opnieuw toewijzen {current}/{total}: {title}",
+        youtubeBulkDone: "YouTube opnieuw toegewezen: {assigned}/{total}. Mislukt: {failed}",
+        gameSettings: "Trailerinstellingen",
+        gameSettingsHint: "Kies, bekijk of bewaar de trailer voor deze game.",
+        streaming: "Streaming",
+        savedLocal: "Lokaal opgeslagen",
+        previewTrailer: "Trailervoorbeeld",
+        useStreaming: "Streamingtrailer gebruiken",
+        downloadTrailer: "Deze trailer downloaden en gebruiken",
+        importTrailer: "Een videobestand importeren",
+        deleteLocalTrailer: "Opgeslagen trailer verwijderen",
+        downloadAll: "Alle trailers downloaden",
+        deleteAll: "Alle opgeslagen trailers verwijderen",
+        cleanupTrailers: "Niet-toegewezen trailerbestanden verwijderen",
+        currentStorage: "Opslag: {value}",
+        qualityPreset: "Downloadkwaliteit: {quality}p",
+        downloadRunning: "Trailers downloaden...",
+        noGameForSettings: "Open deze instellingen via het menu Opties van een game.",
+        operationComplete: "Bewerking voltooid",
+        confirmDeleteAll: "Alle door TrailerHero opgeslagen trailers verwijderen?",
+        confirmCleanup: "Lokale trailerbestanden verwijderen die niet aan een game zijn toegewezen?"
     },
     uk: {
         active: "Увімкнено",
@@ -846,6 +1288,8 @@ const TRANSLATIONS = {
         statusHeroNotFound: "App {appId}: hero не знайдено",
         title: "TrailerHero",
         trailerActive: "Трейлер активний",
+        trailerAudio: "Аудіо трейлера",
+        themeDeckAudio: "Музична тема гри",
         trailerLabel: "Трейлер: {name}",
         trimEnd: "Обрізка кінця, сек",
         trimStart: "Обрізка початку, сек",
@@ -858,7 +1302,56 @@ const TRANSLATIONS = {
         youtubeSearchError: "Помилка пошуку YouTube",
         youtubeTrailer: "Трейлер YouTube",
         youtubeTrailerActive: "Трейлер YouTube активний",
-        youtubeQuality: "Якість YouTube: {value}"
+        youtubeQuality: "Якість YouTube: {value}",
+        defaultAudio: "Типове аудіо",
+        defaultAudioTheme: "Музична тема гри",
+        defaultAudioTrailer: "Аудіо трейлера",
+        back: "Назад",
+        globalSettings: "Загальні налаштування",
+        gameOptions: "Параметри гри",
+        localLibrary: "Режим трейлера",
+        maintenance: "Обслуговування",
+        refreshPreview: "Перезапустити перегляд",
+        noPreview: "Для цієї гри немає доступного перегляду.",
+        downloadProgress: "Завантажено {current}/{total}",
+        cancelDownload: "Скасувати завантаження",
+        cancel: "Скасувати",
+        confirm: "Підтвердити",
+        youtubeGlobal: "Увімкнути відео YouTube",
+        youtubeSearchQuery: "Пошуковий запит YouTube",
+        searchYouTube: "Шукати на YouTube",
+        youtubeResults: "Результати YouTube",
+        useSelectedYouTubeResult: "Використати вибраний результат YouTube",
+        resolvingYouTubeDirect: "Підготовка прямого потоку YouTube",
+        searchingSteamStore: "Пошук трейлера Steam для {title}",
+        sourceLocal: "Локальний трейлер",
+        steamAutoFound: "Знайдено у Steam: {title}",
+        steamAutoNoMatch: "Автопошук Steam: надійного трейлера не знайдено",
+        youtubeDirectUnavailable: "Прямий потік YouTube недоступний; використовується вбудований програвач",
+        youtubeBulkReassign: "Перепризначити посилання YouTube для ігор не зі Steam",
+        youtubeBulkConfirm: "Перепризначити посилання YouTube для всіх ігор не зі Steam?",
+        youtubeBulkNoGames: "Ігор не зі Steam не знайдено.",
+        youtubeBulkProgress: "Перепризначення посилань YouTube {current}/{total}: {title}",
+        youtubeBulkDone: "YouTube перепризначено: {assigned}/{total}. Помилок: {failed}",
+        gameSettings: "Налаштування трейлера",
+        gameSettingsHint: "Виберіть, перегляньте або збережіть трейлер цієї гри.",
+        streaming: "Потокове відтворення",
+        savedLocal: "Збережено локально",
+        previewTrailer: "Перегляд трейлера",
+        useStreaming: "Використати потоковий трейлер",
+        downloadTrailer: "Завантажити й використати цей трейлер",
+        importTrailer: "Імпортувати відеофайл",
+        deleteLocalTrailer: "Видалити збережений трейлер",
+        downloadAll: "Завантажити всі трейлери",
+        deleteAll: "Видалити всі збережені трейлери",
+        cleanupTrailers: "Видалити непризначені файли трейлерів",
+        currentStorage: "Сховище: {value}",
+        qualityPreset: "Якість завантаження: {quality}p",
+        downloadRunning: "Завантаження трейлерів...",
+        noGameForSettings: "Відкрийте ці налаштування з меню Параметри гри.",
+        operationComplete: "Операцію завершено",
+        confirmDeleteAll: "Видалити всі трейлери, збережені TrailerHero?",
+        confirmCleanup: "Видалити локальні файли трейлерів, які не призначені жодній грі?"
     },
     zhCN: {
         active: "启用",
@@ -916,6 +1409,8 @@ const TRANSLATIONS = {
         statusHeroNotFound: "App {appId}：未找到 hero",
         title: "TrailerHero",
         trailerActive: "预告片已启用",
+        trailerAudio: "预告片音频",
+        themeDeckAudio: "游戏音乐主题",
         trailerLabel: "预告片：{name}",
         trimEnd: "结尾裁剪秒数",
         trimStart: "开头裁剪秒数",
@@ -928,7 +1423,56 @@ const TRANSLATIONS = {
         youtubeSearchError: "YouTube 搜索错误",
         youtubeTrailer: "YouTube 预告片",
         youtubeTrailerActive: "YouTube 预告片已启用",
-        youtubeQuality: "YouTube 质量：{value}"
+        youtubeQuality: "YouTube 质量：{value}",
+        defaultAudio: "默认音频",
+        defaultAudioTheme: "游戏音乐",
+        defaultAudioTrailer: "预告片音频",
+        back: "返回",
+        globalSettings: "全局设置",
+        gameOptions: "游戏选项",
+        localLibrary: "预告片模式",
+        maintenance: "维护",
+        refreshPreview: "重新播放预览",
+        noPreview: "此游戏没有可用的预告片预览。",
+        downloadProgress: "已下载 {current}/{total}",
+        cancelDownload: "取消下载",
+        cancel: "取消",
+        confirm: "确认",
+        youtubeGlobal: "启用 YouTube 视频",
+        youtubeSearchQuery: "YouTube 搜索关键词",
+        searchYouTube: "搜索 YouTube",
+        youtubeResults: "YouTube 搜索结果",
+        useSelectedYouTubeResult: "使用选中的 YouTube 结果",
+        resolvingYouTubeDirect: "正在准备 YouTube 直连视频流",
+        searchingSteamStore: "正在为 {title} 搜索 Steam 预告片",
+        sourceLocal: "本地预告片",
+        steamAutoFound: "已在 Steam 找到：{title}",
+        steamAutoNoMatch: "Steam 自动搜索：未找到可靠的预告片",
+        youtubeDirectUnavailable: "YouTube 直连视频流不可用；将使用内嵌播放器",
+        youtubeBulkReassign: "为非 Steam 游戏重新分配 YouTube 链接",
+        youtubeBulkConfirm: "要为所有非 Steam 游戏重新分配 YouTube 链接吗？",
+        youtubeBulkNoGames: "未找到非 Steam 游戏。",
+        youtubeBulkProgress: "正在重新分配 YouTube 链接 {current}/{total}：{title}",
+        youtubeBulkDone: "YouTube 链接已重新分配：{assigned}/{total}。失败：{failed}",
+        gameSettings: "预告片设置",
+        gameSettingsHint: "选择、预览或保存此游戏的预告片。",
+        streaming: "在线播放",
+        savedLocal: "已保存到本地",
+        previewTrailer: "预览预告片",
+        useStreaming: "使用在线预告片",
+        downloadTrailer: "下载并使用此预告片",
+        importTrailer: "导入视频文件",
+        deleteLocalTrailer: "删除已保存的预告片",
+        downloadAll: "下载所有预告片",
+        deleteAll: "删除所有已保存的预告片",
+        cleanupTrailers: "删除未分配的预告片文件",
+        currentStorage: "存储空间：{value}",
+        qualityPreset: "下载质量：{quality}p",
+        downloadRunning: "正在下载预告片...",
+        noGameForSettings: "请从游戏的选项菜单打开这些设置。",
+        operationComplete: "操作完成",
+        confirmDeleteAll: "删除 TrailerHero 保存的所有预告片吗？",
+        confirmCleanup: "删除未分配给任何游戏的本地预告片文件吗？"
     },
     ja: {
         active: "有効",
@@ -986,6 +1530,8 @@ const TRANSLATIONS = {
         statusHeroNotFound: "App {appId}: hero が見つかりません",
         title: "TrailerHero",
         trailerActive: "トレーラー有効",
+        trailerAudio: "トレーラー音声",
+        themeDeckAudio: "ゲームの音楽テーマ",
         trailerLabel: "トレーラー: {name}",
         trimEnd: "終了トリム 秒",
         trimStart: "開始トリム 秒",
@@ -998,7 +1544,56 @@ const TRANSLATIONS = {
         youtubeSearchError: "YouTube 検索エラー",
         youtubeTrailer: "YouTube トレーラー",
         youtubeTrailerActive: "YouTube トレーラー有効",
-        youtubeQuality: "YouTube 品質: {value}"
+        youtubeQuality: "YouTube 品質: {value}",
+        defaultAudio: "デフォルト音声",
+        defaultAudioTheme: "ゲームの音楽",
+        defaultAudioTrailer: "トレーラー音声",
+        back: "戻る",
+        globalSettings: "全般設定",
+        gameOptions: "ゲームオプション",
+        localLibrary: "トレーラーモード",
+        maintenance: "メンテナンス",
+        refreshPreview: "プレビューを再開",
+        noPreview: "このゲームではトレーラーをプレビューできません。",
+        downloadProgress: "ダウンロード済み {current}/{total}",
+        cancelDownload: "ダウンロードをキャンセル",
+        cancel: "キャンセル",
+        confirm: "確認",
+        youtubeGlobal: "YouTube 動画を有効にする",
+        youtubeSearchQuery: "YouTube 検索キーワード",
+        searchYouTube: "YouTube を検索",
+        youtubeResults: "YouTube の検索結果",
+        useSelectedYouTubeResult: "選択した YouTube の結果を使用",
+        resolvingYouTubeDirect: "YouTube の直接ストリームを準備中",
+        searchingSteamStore: "{title} の Steam トレーラーを検索中",
+        sourceLocal: "ローカルトレーラー",
+        steamAutoFound: "Steam で見つかりました: {title}",
+        steamAutoNoMatch: "Steam 自動検索: 信頼できるトレーラーが見つかりません",
+        youtubeDirectUnavailable: "YouTube の直接ストリームを利用できないため、埋め込みプレイヤーを使用します",
+        youtubeBulkReassign: "非 Steam ゲームの YouTube リンクを再割り当て",
+        youtubeBulkConfirm: "すべての非 Steam ゲームの YouTube リンクを再割り当てしますか？",
+        youtubeBulkNoGames: "非 Steam ゲームが見つかりません。",
+        youtubeBulkProgress: "YouTube リンクを再割り当て中 {current}/{total}: {title}",
+        youtubeBulkDone: "YouTube の再割り当て: {assigned}/{total}。失敗: {failed}",
+        gameSettings: "トレーラー設定",
+        gameSettingsHint: "このゲームのトレーラーを選択、プレビュー、保存できます。",
+        streaming: "ストリーミング",
+        savedLocal: "ローカルに保存済み",
+        previewTrailer: "トレーラーをプレビュー",
+        useStreaming: "ストリーミングトレーラーを使用",
+        downloadTrailer: "このトレーラーをダウンロードして使用",
+        importTrailer: "動画ファイルをインポート",
+        deleteLocalTrailer: "保存済みトレーラーを削除",
+        downloadAll: "すべてのトレーラーをダウンロード",
+        deleteAll: "保存済みトレーラーをすべて削除",
+        cleanupTrailers: "未割り当てのトレーラーファイルを削除",
+        currentStorage: "ストレージ: {value}",
+        qualityPreset: "ダウンロード品質: {quality}p",
+        downloadRunning: "トレーラーをダウンロード中...",
+        noGameForSettings: "ゲームのオプションメニューからこの設定を開いてください。",
+        operationComplete: "操作が完了しました",
+        confirmDeleteAll: "TrailerHero が保存したすべてのトレーラーを削除しますか？",
+        confirmCleanup: "どのゲームにも割り当てられていないローカルトレーラーファイルを削除しますか？"
     }
 };
 function normalizeLocale(value) {
@@ -1091,6 +1686,9 @@ function getSourceLabel(source) {
     if (source === "youtube") {
         return tr("sourceYouTube");
     }
+    if (source === "local") {
+        return tr("sourceLocal");
+    }
     return tr("sourceAuto");
 }
 function extractYouTubeId(value) {
@@ -1144,9 +1742,10 @@ function isRuntimeSnapshot(value) {
 }
 function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const runtimeKey = "__trailerHeroRuntime";
-    const runtimeVersion = "1.2.5.9";
+    const runtimeVersion = "1.5.0.0";
     const styleId = "trailerhero-style";
     const videoClass = "trailerhero-video";
+    const audioClass = "trailerhero-audio";
     const youtubeClass = "trailerhero-youtube";
     const youtubeMaskClass = "trailerhero-youtube-mask";
     const logoClass = "trailerhero-logo";
@@ -1156,6 +1755,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const targetClass = "trailerhero-target";
     const readyClass = "trailerhero-ready";
     const visibleClass = "trailerhero-visible";
+    const audioHintId = "trailerhero-audio-hint";
+    const themeDeckActivityEvent = "playhub:now-playing-activity";
+    const themeDeckActivityGlobal = "__playhubNowPlayingActivity";
     const defaultTrimStartSeconds = 4;
     const defaultTrimEndSeconds = 5;
     const scanIntervalMs = 2400;
@@ -1276,8 +1878,35 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
         }
         return undefined;
     }
+    function getOpenerRouteText() {
+        try {
+            const opener = window.opener;
+            if (!opener?.location) {
+                return "";
+            }
+            const routeText = [
+                opener.location.href,
+                opener.location.pathname,
+                opener.location.hash,
+                opener.document?.URL
+            ].filter(Boolean).join(" ").toLowerCase();
+            return routeText.includes("steamloopback.host/routes/") ? routeText : "";
+        }
+        catch {
+            return "";
+        }
+    }
+    function getLocalRouteText() {
+        return [
+            window.location.href,
+            window.location.pathname,
+            window.location.hash,
+            document.URL
+        ].join(" ").toLowerCase();
+    }
     function detectLocationAppId() {
         const sources = [
+            getOpenerRouteText(),
             window.location.href,
             window.location.pathname,
             window.location.hash,
@@ -1386,24 +2015,15 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             routeText.includes("library_home") ||
             routeText.includes("libraryhome"));
     }
+    function isGameDetailsRoute(routeText) {
+        return (/\/(?:routes\/)?library\/(?:app\/)?\d+(?:[/?#]|$)/i.test(routeText) ||
+            /\/routes\/library\/app\/\d+/i.test(routeText));
+    }
     function hasLibraryOverviewText(bodyText) {
         return (bodyText.includes("vedi altri giochi nella libreria") ||
             bodyText.includes("see more games in your library") ||
             bodyText.includes("recent games") ||
             bodyText.includes("giochi recenti"));
-    }
-    function isFocusedLibraryHomeHero(hero) {
-        if (!hero) {
-            return false;
-        }
-        const rect = hero.element.getBoundingClientRect();
-        const assetText = hero.assetText.toLowerCase();
-        const isHeroAsset = assetText.includes("library_hero") || assetText.includes("_hero");
-        return (isHeroAsset &&
-            rect.width >= window.innerWidth * 0.7 &&
-            rect.height >= Math.min(240, window.innerHeight * 0.24) &&
-            rect.top <= window.innerHeight * 0.12 &&
-            rect.bottom > window.innerHeight * 0.12);
     }
     function getVisibleLibraryTileCount() {
         return Array.from(document.querySelectorAll("img[src*='/customimages/'], img[src*='library_capsule'], img[src*='header_image'], [style*='/customimages/'], [style*='library_capsule'], [style*='header_image']")).filter((element) => {
@@ -1438,25 +2058,30 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             return false;
         }
         const bodyText = document.body.innerText?.slice(0, 9000).toLowerCase() ?? "";
-        const routeText = [
-            window.location.href,
-            window.location.pathname,
-            window.location.hash,
-            document.URL
-        ].join(" ").toLowerCase();
+        const hero = findHeroCandidate();
+        const openerRouteText = getOpenerRouteText();
+        if (openerRouteText) {
+            if (isLibraryOverviewRoute(openerRouteText)) {
+                return false;
+            }
+            if (isGameDetailsRoute(openerRouteText)) {
+                return Boolean(hero && hasGameDetailsSignals(bodyText));
+            }
+        }
+        const routeText = getLocalRouteText();
         if (hasLibraryOverviewText(bodyText)) {
             return false;
         }
         if (isLibraryOverviewRoute(routeText)) {
-            return isFocusedLibraryHomeHero(findHeroCandidate()) && hasGameDetailsSignals(bodyText);
+            return false;
         }
         if (detectLocationAppId()) {
-            return true;
+            return Boolean(hero && hasGameDetailsSignals(bodyText));
         }
         if (isLibraryOverviewSurface(bodyText, routeText)) {
             return false;
         }
-        if (!findHeroCandidate()) {
+        if (!hero) {
             return false;
         }
         return hasGameDetailsSignals(bodyText);
@@ -2136,6 +2761,8 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.trailerCache = new Map();
             this.scanQueued = false;
             this.launchSuppressedUntil = 0;
+            this.trailerAudioEnabled = settings.defaultAudio === "trailer";
+            this.lastSecondaryPressAt = 0;
             this.handleRouteChange = () => {
                 this.launchSuppressedUntil = 0;
                 this.cleanupVideo(true);
@@ -2153,10 +2780,34 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 this.stopTrailerForLaunch(event.target);
             };
             this.handleLaunchKeyDown = (event) => {
+                if ((event.code === "KeyX" || event.key?.toLowerCase?.() === "x") &&
+                    !(event.target instanceof HTMLInputElement) &&
+                    !(event.target instanceof HTMLTextAreaElement) &&
+                    this.toggleTrailerAudio()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return;
+                }
                 if (event.key !== "Enter" && event.key !== " ") {
                     return;
                 }
                 this.stopTrailerForLaunch(event.target ?? document.activeElement);
+            };
+            this.handleGamepadButtonDown = (event) => {
+                if (Number(event?.detail?.button) !== 3 || event?.detail?.is_repeat) {
+                    return;
+                }
+                const now = Date.now();
+                if (now - this.lastSecondaryPressAt < 350) {
+                    return;
+                }
+                if (!this.toggleTrailerAudio()) {
+                    return;
+                }
+                this.lastSecondaryPressAt = now;
+                event.preventDefault?.();
+                event.stopPropagation?.();
+                event.stopImmediatePropagation?.();
             };
             this.settings = settings;
         }
@@ -2180,6 +2831,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             document.addEventListener("pointerdown", this.handleLaunchIntent, true);
             document.addEventListener("click", this.handleLaunchIntent, true);
             document.addEventListener("keydown", this.handleLaunchKeyDown, true);
+            document.addEventListener("vgp_onbuttondown", this.handleGamepadButtonDown, true);
             window.addEventListener("hashchange", this.handleRouteChange);
             window.addEventListener("popstate", this.handleRouteChange);
             window.addEventListener("beforeunload", this.handleBeforeUnload);
@@ -2197,6 +2849,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.installStyle();
             if (settings.youtubeEnabled) {
                 this.ensureYouTubePreconnect();
+            }
+            if (previousSettings.defaultAudio !== settings.defaultAudio) {
+                this.setTrailerAudioEnabled(settings.defaultAudio === "trailer");
             }
             if (!settings.enabled) {
                 this.cleanupVideo(true);
@@ -2220,7 +2875,8 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 JSON.stringify(previousSettings.trimEndOverrides) !== JSON.stringify(settings.trimEndOverrides) ||
                 JSON.stringify(previousSettings.crtOverrides) !== JSON.stringify(settings.crtOverrides) ||
                 JSON.stringify(previousSettings.youtubeVideos) !== JSON.stringify(settings.youtubeVideos) ||
-                JSON.stringify(previousSettings.youtubeQueries) !== JSON.stringify(settings.youtubeQueries)) {
+                JSON.stringify(previousSettings.youtubeQueries) !== JSON.stringify(settings.youtubeQueries) ||
+                JSON.stringify(previousSettings.localTrailers) !== JSON.stringify(settings.localTrailers)) {
                 this.trailerCache.clear();
                 this.cleanupVideo(true);
             }
@@ -2252,6 +2908,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 lastPlaybackError: this.lastPlaybackError,
                 candidateIndex: this.currentCandidateIndex,
                 candidateCount: this.currentCandidateCount,
+                trailerAudioEnabled: this.trailerAudioEnabled,
                 trimStartSeconds: this.currentAppId ? this.getTrimStart(this.currentAppId) : defaultTrimStartSeconds,
                 trimEndSeconds: this.currentAppId ? this.getTrimEnd(this.currentAppId) : defaultTrimEndSeconds
             };
@@ -2268,6 +2925,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             document.removeEventListener("pointerdown", this.handleLaunchIntent, true);
             document.removeEventListener("click", this.handleLaunchIntent, true);
             document.removeEventListener("keydown", this.handleLaunchKeyDown, true);
+            document.removeEventListener("vgp_onbuttondown", this.handleGamepadButtonDown, true);
             document.removeEventListener("visibilitychange", this.handleVisibilityChange);
             this.cleanupVideo();
             document.getElementById(styleId)?.remove();
@@ -2305,6 +2963,153 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.cleanupVideo(true);
             this.status = rt("stoppedForLaunch");
         }
+        getActivityWindows() {
+            const targets = [window];
+            try {
+                if (window.opener && !targets.includes(window.opener)) {
+                    targets.push(window.opener);
+                }
+            }
+            catch {
+            }
+            return targets;
+        }
+        publishTrailerAudioActivity(active) {
+            const signal = {
+                active,
+                status: active ? "Playing" : "Paused",
+                source: "trailerhero",
+                player: "TrailerHero",
+                updatedAt: Date.now()
+            };
+            for (const target of this.getActivityWindows()) {
+                try {
+                    const current = target[themeDeckActivityGlobal];
+                    if (active || !current || current.source === "trailerhero") {
+                        target[themeDeckActivityGlobal] = signal;
+                    }
+                    target.dispatchEvent(new target.CustomEvent(themeDeckActivityEvent, { detail: signal }));
+                }
+                catch {
+                }
+            }
+        }
+        applyCurrentMediaAudioState() {
+            const enabled = this.trailerAudioEnabled;
+            if (this.currentVideo) {
+                const separateAudio = Boolean(this.currentAudio?.isConnected);
+                this.currentVideo.muted = !enabled || separateAudio;
+                this.currentVideo.defaultMuted = !enabled || separateAudio;
+                this.currentVideo.volume = enabled && !separateAudio ? 1 : 0;
+                if (enabled && this.currentVideo.paused) {
+                    this.currentVideo.play().catch(() => undefined);
+                }
+            }
+            if (this.currentAudio) {
+                this.currentAudio.muted = !enabled;
+                this.currentAudio.defaultMuted = !enabled;
+                this.currentAudio.volume = enabled ? 1 : 0;
+                if (enabled) {
+                    this.syncAudioTrack();
+                    this.currentAudio.play().catch(() => undefined);
+                }
+            }
+            if (this.currentFrame?.contentWindow) {
+                for (const command of enabled
+                    ? [{ event: "command", func: "setVolume", args: [100] }, { event: "command", func: "unMute", args: [] }]
+                    : [{ event: "command", func: "mute", args: [] }]) {
+                    try {
+                        this.currentFrame.contentWindow.postMessage(JSON.stringify(command), "*");
+                    }
+                    catch {
+                    }
+                }
+            }
+        }
+        setTrailerAudioEnabled(enabled) {
+            const hasVideo = Boolean(this.currentVideo?.isConnected);
+            const hasFrame = Boolean(this.currentFrame?.isConnected);
+            if (enabled && !hasVideo && !hasFrame) {
+                return false;
+            }
+            if (this.trailerAudioEnabled === enabled) {
+                this.updateAudioHint();
+                return hasVideo || hasFrame;
+            }
+            this.trailerAudioEnabled = enabled;
+            this.applyCurrentMediaAudioState();
+            if (this.audioActivityTimer) {
+                clearInterval(this.audioActivityTimer);
+                this.audioActivityTimer = undefined;
+            }
+            for (const timer of this.audioActivityWarmupTimers ?? []) {
+                clearTimeout(timer);
+            }
+            this.audioActivityWarmupTimers = [];
+            this.publishTrailerAudioActivity(enabled);
+            if (enabled) {
+                this.audioActivityWarmupTimers = [120, 450, 900].map((delay) => setTimeout(() => {
+                    if (this.trailerAudioEnabled) {
+                        this.applyCurrentMediaAudioState();
+                        this.publishTrailerAudioActivity(true);
+                    }
+                }, delay));
+                this.audioActivityTimer = setInterval(() => {
+                    if (!this.trailerAudioEnabled ||
+                        (!this.currentVideo?.isConnected && !this.currentFrame?.isConnected) ||
+                        !isProbablyGameDetailsPage()) {
+                        this.setTrailerAudioEnabled(false);
+                        return;
+                    }
+                    this.applyCurrentMediaAudioState();
+                    this.publishTrailerAudioActivity(true);
+                }, 2000);
+            }
+            this.updateAudioHint();
+            return true;
+        }
+        toggleTrailerAudio() {
+            if (!isProbablyGameDetailsPage()) {
+                return false;
+            }
+            return this.setTrailerAudioEnabled(!this.trailerAudioEnabled);
+        }
+        removeAudioHint() {
+            document.getElementById(audioHintId)?.remove();
+        }
+        updateAudioHint(gameDetails = isProbablyGameDetailsPage()) {
+            const hasMedia = Boolean(this.currentVideo?.isConnected || this.currentFrame?.isConnected);
+            if (!gameDetails || !hasMedia) {
+                this.removeAudioHint();
+                return;
+            }
+            const footer = document.querySelector("#Footer > div");
+            if (!(footer instanceof HTMLElement)) {
+                return;
+            }
+            let hint = document.getElementById(audioHintId);
+            if (!hint || hint.parentElement !== footer) {
+                hint?.remove();
+                const template = Array.from(footer.children).find((element) => element.querySelector("img[src*='shared_button_a'], img[src*='shared_button_b']")) ??
+                    Array.from(footer.children).find((element) => element.querySelector("img"));
+                if (!(template instanceof HTMLElement)) {
+                    return;
+                }
+                hint = template.cloneNode(true);
+                hint.id = audioHintId;
+                const firstAction = Array.from(footer.children).find((element) => element !== hint && element.querySelector("img[src*='shared_button_a']"));
+                footer.insertBefore(hint, firstAction ?? null);
+            }
+            const glyph = hint.querySelector("img");
+            if (glyph) {
+                glyph.src = "/steaminputglyphs/shared_button_x.svg";
+                glyph.alt = "";
+            }
+            const label = Array.from(hint.querySelectorAll("div")).find((element) => !element.querySelector("img") && element.children.length === 0);
+            if (label) {
+                label.textContent = rt(this.trailerAudioEnabled ? "themeDeckAudio" : "trailerAudio");
+            }
+        }
         queueScan() {
             if (this.scanQueued) {
                 return;
@@ -2327,6 +3132,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 return;
             }
             const isGameDetails = isProbablyGameDetailsPage();
+            this.updateAudioHint(isGameDetails);
             if (!document.body || !isGameDetails) {
                 this.currentAppId = undefined;
                 this.currentSourceAppId = undefined;
@@ -2403,6 +3209,18 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.status = rt("searchTrailerForApp", { appId });
             const token = ++this.requestToken;
             const youtubeId = this.getYouTubeId(appId);
+            const localTrailer = this.settings.localTrailers?.[String(appId)];
+            if (this.preferredSource === "local" && localTrailer?.videoUrl) {
+                this.currentTrailerName = localTrailer.title || rt("trailerActive");
+                this.selectedSteamMovieId = undefined;
+                this.steamMovies = [];
+                this.needsYouTubeSearch = false;
+                this.attachVideo(hero.element, appId, [localTrailer.videoUrl], token, {
+                    mediaSignature: desiredMediaSignature,
+                    audioCandidates: localTrailer.audioUrl ? [localTrailer.audioUrl] : []
+                });
+                return;
+            }
             if (this.shouldResolveSteamAppId(appId)) {
                 this.currentTrailerName = undefined;
                 this.selectedSteamMovieId = undefined;
@@ -2478,6 +3296,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             const trimStart = this.getTrimStart(appId);
             const trimEnd = this.getTrimEnd(appId);
             const crt = this.getCrtPreference(appId);
+            const localTrailer = this.settings.localTrailers?.[String(appId)];
             return [
                 source,
                 sourceAppId,
@@ -2487,7 +3306,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 trimStart,
                 trimEnd,
                 crt,
-                this.settings.youtubePlaybackMode
+                this.settings.youtubePlaybackMode,
+                localTrailer?.sha256 ?? "",
+                localTrailer?.videoUrl ?? ""
             ].join(":");
         }
         getSteamSearchFailure(appId) {
@@ -2611,24 +3432,22 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                     "movie_max.mp4",
                     "movie480.mp4"
                 ];
-                const candidates = [
-                    ...declaredCandidates,
-                    ...directMovieFiles.map((file) => `${sharedBase}/${file}`),
-                    ...directMovieFiles.map((file) => `${cdnBase}/${file}`)
-                ].filter((url, index, urls) => url && urls.indexOf(url) === index);
+                const candidates = [...declaredCandidates];
+                if (movie.hls_h264) {
+                    candidates.push(movie.hls_h264);
+                }
                 if (movie.dash_h264) {
                     candidates.push(movie.dash_h264);
                 }
                 if (movie.dash_av1) {
                     candidates.push(movie.dash_av1);
                 }
-                if (movie.hls_h264) {
-                    candidates.push(movie.hls_h264);
-                }
+                candidates.push(...directMovieFiles.map((file) => `${sharedBase}/${file}`));
+                candidates.push(...directMovieFiles.map((file) => `${cdnBase}/${file}`));
                 return this.rememberTrailer(cacheKey, {
                     ok: true,
                     name: movie.name ?? rt("steamTrailer"),
-                    candidates,
+                    candidates: candidates.filter((url, index, urls) => url && urls.indexOf(url) === index),
                     movies: movieChoices,
                     selectedMovieId: String(movieId),
                     sourceAppId
@@ -2674,6 +3493,73 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
         rememberTrailer(cacheKey, result) {
             this.trailerCache.set(cacheKey, result);
             return result;
+        }
+        syncAudioTrack() {
+            const video = this.currentVideo;
+            const audio = this.currentAudio;
+            if (!video || !audio || !Number.isFinite(video.currentTime) || audio.readyState < 1) {
+                return;
+            }
+            if (Math.abs(audio.currentTime - video.currentTime) > 0.35) {
+                try {
+                    audio.currentTime = Math.max(0, video.currentTime);
+                }
+                catch {
+                }
+            }
+        }
+        attachAudioTrack(video, candidates, token) {
+            const urls = candidates
+                .map((candidate) => typeof candidate === "string" ? candidate : candidate?.url)
+                .filter((url) => typeof url === "string" && url.startsWith("http"));
+            if (!urls.length) {
+                return;
+            }
+            const audio = document.createElement("audio");
+            audio.className = audioClass;
+            audio.autoplay = true;
+            audio.loop = true;
+            audio.muted = true;
+            audio.defaultMuted = true;
+            audio.volume = 0;
+            audio.preload = "auto";
+            audio.style.display = "none";
+            audio.setAttribute("aria-hidden", "true");
+            let index = 0;
+            const loadNext = () => {
+                if (token !== this.requestToken || !audio.isConnected) {
+                    return;
+                }
+                const source = urls[index++];
+                if (!source) {
+                    if (this.currentAudio === audio) {
+                        this.currentAudio = undefined;
+                    }
+                    audio.remove();
+                    return;
+                }
+                audio.src = source;
+                audio.load();
+            };
+            audio.addEventListener("canplay", () => {
+                if (token !== this.requestToken || !audio.isConnected) {
+                    return;
+                }
+                this.syncAudioTrack();
+                audio.muted = !this.trailerAudioEnabled;
+                audio.defaultMuted = !this.trailerAudioEnabled;
+                audio.volume = this.trailerAudioEnabled ? 1 : 0;
+                audio.play().catch(() => undefined);
+            });
+            audio.addEventListener("error", loadNext);
+            video.addEventListener("loadedmetadata", () => this.syncAudioTrack());
+            video.addEventListener("seeked", () => this.syncAudioTrack());
+            video.addEventListener("timeupdate", () => this.syncAudioTrack());
+            video.addEventListener("play", () => audio.play().catch(() => undefined));
+            video.addEventListener("pause", () => audio.pause());
+            document.body.appendChild(audio);
+            this.currentAudio = audio;
+            loadNext();
         }
         attachVideo(target, appId, candidates, token, options = {}) {
             const host = this.prepareHost(target);
@@ -2786,6 +3672,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 this.currentVideo = video;
                 this.currentMediaAppId = appId;
                 this.currentMediaSignature = options.mediaSignature ?? this.getDesiredMediaSignature(appId);
+                this.updateAudioHint(true);
                 this.seekPastIntro(video);
                 this.applyLowResCrt(host, video);
                 video.play().catch(() => {
@@ -2825,6 +3712,10 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.currentVideo = video;
             this.currentMediaAppId = appId;
             this.currentMediaSignature = options.mediaSignature ?? this.getDesiredMediaSignature(appId);
+            if (Array.isArray(options.audioCandidates) && options.audioCandidates.length) {
+                this.attachAudioTrack(video, options.audioCandidates, token);
+            }
+            this.updateAudioHint(true);
             tryCandidate();
         }
         attachYouTubeForMode(target, appId, videoId, token, options = {}) {
@@ -2865,6 +3756,11 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                     .map((candidate) => typeof candidate === "string" ? candidate : candidate?.url)
                     .filter((url) => typeof url === "string" && url.startsWith("http"))
                 : [];
+            const audioCandidates = Array.isArray(entry?.audioCandidates)
+                ? entry.audioCandidates
+                    .map((candidate) => typeof candidate === "string" ? candidate : candidate?.url)
+                    .filter((url) => typeof url === "string" && url.startsWith("http"))
+                : [];
             if (!candidates.length) {
                 this.needsYouTubeDirectResolve = true;
                 this.youtubeDirectResolveKey = key;
@@ -2881,6 +3777,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.status = rt("loadingYouTubeTrailer");
             this.attachVideo(target, appId, candidates, token, {
                 mediaSignature: options.mediaSignature,
+                audioCandidates,
                 failureStatus: rt("youtubeDirectUnavailable"),
                 onFailure: () => {
                     if (token !== this.requestToken) {
@@ -2984,6 +3881,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.currentFrame = frame;
             this.currentMediaAppId = appId;
             this.currentMediaSignature = options.mediaSignature ?? this.getDesiredMediaSignature(appId);
+            this.updateAudioHint(true);
             this.status = rt("loadingYouTubeTrailer");
         }
         prepareHost(target) {
@@ -3261,6 +4159,10 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             if (!MediaSource.isTypeSupported(mimeType)) {
                 throw new Error(`Codec non supportato: ${mimeType}`);
             }
+            const audioMimeType = variant.audio ? `audio/mp4; codecs="${variant.audio.codec}"` : undefined;
+            if (audioMimeType && !MediaSource.isTypeSupported(audioMimeType)) {
+                variant.audio = undefined;
+            }
             await new Promise((resolve, reject) => {
                 const mediaSource = new MediaSource();
                 const objectUrl = URL.createObjectURL(mediaSource);
@@ -3276,15 +4178,22 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                         if (token !== this.requestToken) {
                             throw new Error("Trailer request changed");
                         }
-                        const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-                        sourceBuffer.mode = "segments";
-                        await this.appendBuffer(sourceBuffer, await this.fetchArrayBuffer(variant.initUrl));
-                        for (const segmentUrl of variant.segmentUrls) {
-                            if (token !== this.requestToken) {
-                                throw new Error("Trailer request changed");
+                        const appendStream = async (stream, streamMimeType) => {
+                            const sourceBuffer = mediaSource.addSourceBuffer(streamMimeType);
+                            sourceBuffer.mode = "segments";
+                            await this.appendBuffer(sourceBuffer, await this.fetchArrayBuffer(stream.initUrl));
+                            for (const segmentUrl of stream.segmentUrls) {
+                                if (token !== this.requestToken) {
+                                    throw new Error("Trailer request changed");
+                                }
+                                await this.appendBuffer(sourceBuffer, await this.fetchArrayBuffer(segmentUrl));
                             }
-                            await this.appendBuffer(sourceBuffer, await this.fetchArrayBuffer(segmentUrl));
+                        };
+                        const streams = [appendStream(variant, mimeType)];
+                        if (variant.audio && audioMimeType) {
+                            streams.push(appendStream(variant.audio, audioMimeType));
                         }
+                        await Promise.all(streams);
                         if (mediaSource.readyState === "open") {
                             mediaSource.endOfStream();
                         }
@@ -3387,20 +4296,22 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             }
             const durationSeconds = this.parseIsoDurationSeconds(documentXml.documentElement.getAttribute("mediaPresentationDuration") ?? "");
             const variants = [];
+            const audioVariants = [];
             for (const adaptation of Array.from(documentXml.getElementsByTagName("AdaptationSet"))) {
                 const contentType = adaptation.getAttribute("contentType") ?? "";
                 const mimeType = adaptation.getAttribute("mimeType") ?? "";
-                if (contentType && contentType !== "video") {
-                    continue;
-                }
-                if (mimeType && !mimeType.startsWith("video/")) {
+                const isAudio = contentType === "audio" || mimeType.startsWith("audio/");
+                const isVideo = contentType === "video" || mimeType.startsWith("video/") || (!contentType && !mimeType);
+                if (!isAudio && !isVideo) {
                     continue;
                 }
                 const adaptationTemplate = adaptation.getElementsByTagName("SegmentTemplate")[0];
                 for (const representation of Array.from(adaptation.getElementsByTagName("Representation"))) {
                     const codec = representation.getAttribute("codecs") ?? adaptation.getAttribute("codecs") ?? "";
                     const representationMime = representation.getAttribute("mimeType") ?? mimeType;
-                    if (!codec || (representationMime && !representationMime.startsWith("video/"))) {
+                    if (!codec ||
+                        (isAudio && representationMime && !representationMime.startsWith("audio/")) ||
+                        (isVideo && representationMime && !representationMime.startsWith("video/"))) {
                         continue;
                     }
                     const template = representation.getElementsByTagName("SegmentTemplate")[0] ?? adaptationTemplate;
@@ -3420,13 +4331,19 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                     if (!segmentUrls.length) {
                         continue;
                     }
-                    variants.push({
+                    const entry = {
                         initUrl,
                         segmentUrls,
                         codec,
                         height,
                         bandwidth
-                    });
+                    };
+                    if (isAudio) {
+                        audioVariants.push(entry);
+                    }
+                    else {
+                        variants.push(entry);
+                    }
                 }
             }
             if (!variants.length) {
@@ -3438,7 +4355,8 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 const rightDistance = Math.abs((right.height || targetHeight) - targetHeight);
                 return leftDistance - rightDistance || right.height - left.height || right.bandwidth - left.bandwidth;
             });
-            return variants[0];
+            audioVariants.sort((left, right) => right.bandwidth - left.bandwidth);
+            return { ...variants[0], audio: audioVariants[0] };
         }
         buildDashSegmentUrls(template, mediaTemplate, representationId, bandwidth, durationSeconds, manifestUrl) {
             const timeline = template.getElementsByTagName("SegmentTimeline")[0];
@@ -3521,6 +4439,8 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             };
         }
         cleanupVideo(cancelPending = false) {
+            this.setTrailerAudioEnabled(false);
+            this.removeAudioHint();
             if (cancelPending) {
                 this.requestToken += 1;
                 this.clearPendingRequest();
@@ -3536,6 +4456,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             void this.restoreSteamLogoPosition();
             const objectUrl = this.currentVideo?.dataset.trailerheroObjectUrl;
             this.currentVideo?.remove();
+            this.currentAudio?.remove();
             this.currentFrame?.remove();
             this.currentLogo?.remove();
             this.currentNativeLogo?.classList.remove(nativeLogoClass, visibleClass);
@@ -3544,6 +4465,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 URL.revokeObjectURL(objectUrl);
             }
             this.currentVideo = undefined;
+            this.currentAudio = undefined;
             this.currentFrame = undefined;
             this.currentLogo = undefined;
             this.currentNativeLogo = undefined;
@@ -3555,7 +4477,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.currentCandidateCount = undefined;
             this.currentTarget?.classList.remove(targetClass, readyClass, crtClass);
             this.currentTarget = undefined;
-            document.querySelectorAll(`.${videoClass}, .${youtubeMaskClass}, .${logoClass}`)
+            document.querySelectorAll(`.${videoClass}, .${audioClass}, .${youtubeMaskClass}, .${logoClass}`)
                 .forEach((element) => element.remove());
             document.querySelectorAll(`.${nativeLogoClass}`)
                 .forEach((element) => element.classList.remove(nativeLogoClass, visibleClass));
@@ -3652,15 +4574,22 @@ class TrailerHeroController {
         this.steamAppSearchInFlight = new Set();
         this.steamAutoSearchFailures = {};
         this.bulkYouTubeInFlight = false;
+        this.localTrailers = {};
+        this.trailerJob = undefined;
+        this.trailerJobTimer = undefined;
     }
     mount() {
-        this.installOrUpdate();
+        void this.refreshLocalTrailers().finally(() => this.installOrUpdate());
         this.statusTimer = setInterval(() => this.readRemoteStatus(), 2000);
     }
     unmount() {
         if (this.statusTimer) {
             clearInterval(this.statusTimer);
             this.statusTimer = undefined;
+        }
+        if (this.trailerJobTimer) {
+            clearTimeout(this.trailerJobTimer);
+            this.trailerJobTimer = undefined;
         }
         this.destroyRemote();
         this.listeners.clear();
@@ -3690,6 +4619,9 @@ class TrailerHeroController {
             trimStartSeconds: this.trimStartSeconds,
             trimEndSeconds: this.trimEndSeconds,
             bulkYouTubeInFlight: this.bulkYouTubeInFlight,
+            localTrailers: this.localTrailers,
+            currentLocalTrailer: this.appId ? this.localTrailers[String(this.appId)] : undefined,
+            trailerJob: this.trailerJob,
             tab: this.workingTab
         };
     }
@@ -3873,34 +4805,43 @@ class TrailerHeroController {
         this.updateSettings({ blockedApps: Array.from(blocked) });
     }
     setCurrentAppBlocked(blockedForCurrentApp) {
-        if (!this.appId) {
+        this.setAppBlocked(this.appId, blockedForCurrentApp);
+    }
+    setAppBlocked(appId, blocked) {
+        if (!appId) {
             return;
         }
-        const blocked = new Set(this.settings.blockedApps);
-        if (blockedForCurrentApp) {
-            blocked.add(this.appId);
+        const blockedApps = new Set(this.settings.blockedApps);
+        if (blocked) {
+            blockedApps.add(appId);
         }
         else {
-            blocked.delete(this.appId);
+            blockedApps.delete(appId);
         }
-        this.updateSettings({ blockedApps: Array.from(blocked) });
+        this.updateSettings({ blockedApps: Array.from(blockedApps) });
     }
     setYouTubeQueryForCurrent(value) {
-        if (!this.appId) {
+        this.setYouTubeQueryForApp(this.appId, value, this.gameTitle);
+    }
+    setYouTubeQueryForApp(appId, value, defaultTitle = "") {
+        if (!appId) {
             return;
         }
         const query = String(value || "").trim();
         const youtubeQueries = { ...this.settings.youtubeQueries };
-        if (query && query !== this.gameTitle) {
-            youtubeQueries[String(this.appId)] = query;
+        if (query && query !== defaultTitle) {
+            youtubeQueries[String(appId)] = query;
         }
         else {
-            delete youtubeQueries[String(this.appId)];
+            delete youtubeQueries[String(appId)];
         }
         this.updateSettings({ youtubeQueries });
     }
     setYouTubeForCurrent(value) {
-        if (!this.appId) {
+        return this.setYouTubeForApp(this.appId, value);
+    }
+    setYouTubeForApp(appId, value) {
+        if (!appId) {
             return false;
         }
         const videoId = extractYouTubeId(value);
@@ -3912,22 +4853,236 @@ class TrailerHeroController {
         this.updateSettings({
             youtubeVideos: {
                 ...this.settings.youtubeVideos,
-                [String(this.appId)]: videoId
+                [String(appId)]: videoId
             },
             preferredSources: {
                 ...this.settings.preferredSources,
-                [String(this.appId)]: "youtube"
+                [String(appId)]: "youtube"
             }
         });
         return true;
     }
     clearYouTubeForCurrent() {
-        if (!this.appId) {
+        this.clearYouTubeForApp(this.appId);
+    }
+    clearYouTubeForApp(appId) {
+        if (!appId) {
             return;
         }
         const youtubeVideos = { ...this.settings.youtubeVideos };
-        delete youtubeVideos[String(this.appId)];
+        delete youtubeVideos[String(appId)];
         this.updateSettings({ youtubeVideos });
+    }
+    setDefaultAudio(value) {
+        this.updateSettings({ defaultAudio: value === "trailer" ? "trailer" : "theme" });
+    }
+    setPreferredSourceForCurrent(source) {
+        return this.setPreferredSourceForApp(this.appId, source);
+    }
+    setPreferredSourceForApp(appId, source) {
+        if (!appId || !SOURCE_OPTIONS.includes(source)) {
+            return;
+        }
+        this.updateSettings({
+            preferredSources: {
+                ...this.settings.preferredSources,
+                [String(appId)]: source
+            }
+        });
+    }
+    useStreamingForApp(appId) {
+        if (!appId) {
+            return;
+        }
+        const key = String(appId);
+        const nextSource = this.settings.youtubeVideos[key] ? "youtube" : "auto";
+        this.setPreferredSourceForApp(appId, nextSource);
+    }
+    setSteamMovieForApp(appId, movieId) {
+        if (!appId || !movieId) {
+            return;
+        }
+        this.updateSettings({
+            steamMovieOverrides: {
+                ...this.settings.steamMovieOverrides,
+                [String(appId)]: movieId
+            },
+            preferredSources: {
+                ...this.settings.preferredSources,
+                [String(appId)]: "steam"
+            }
+        });
+    }
+    setTrimForApp(appId, startValue, endValue) {
+        if (!appId) {
+            return false;
+        }
+        const trimStart = Number.parseInt(String(startValue).trim(), 10);
+        const trimEnd = Number.parseInt(String(endValue).trim(), 10);
+        if (!Number.isInteger(trimStart) || !Number.isInteger(trimEnd) ||
+            trimStart < 0 || trimStart > 60 || trimEnd < 0 || trimEnd > 60) {
+            return false;
+        }
+        this.updateSettings({
+            trimStartOverrides: {
+                ...this.settings.trimStartOverrides,
+                [String(appId)]: trimStart
+            },
+            trimEndOverrides: {
+                ...this.settings.trimEndOverrides,
+                [String(appId)]: trimEnd
+            }
+        });
+        return true;
+    }
+    async refreshLocalTrailers() {
+        try {
+            const result = await getLocalTrailer(0);
+            const entries = Array.isArray(result?.entries) ? result.entries : [];
+            this.localTrailers = Object.fromEntries(entries
+                .filter((entry) => entry?.assigned && Number.isInteger(Number(entry.appid)))
+                .map((entry) => [String(entry.appid), entry]));
+            const preferredSources = { ...this.settings.preferredSources };
+            let settingsChanged = false;
+            for (const [appId, source] of Object.entries(preferredSources)) {
+                if (source === "local" && !this.localTrailers[appId]) {
+                    preferredSources[appId] = "auto";
+                    settingsChanged = true;
+                }
+            }
+            if (settingsChanged) {
+                this.settings = { ...this.settings, preferredSources };
+                saveSettings(this.settings);
+            }
+            this.emit();
+            return result;
+        }
+        catch (error) {
+            this.status = error instanceof Error ? error.message : String(error);
+            this.emit();
+            return { ok: false, error: this.status };
+        }
+    }
+    async importTrailerForCurrent(path) {
+        return this.importTrailerForApp(this.appId, path, this.gameTitle || "");
+    }
+    async importTrailerForApp(appId, path, title = "") {
+        if (!appId || !path) {
+            return { ok: false };
+        }
+        const result = await importLocalTrailer(appId, path, title);
+        if (result?.ok) {
+            await this.refreshLocalTrailers();
+            this.setPreferredSourceForApp(appId, "local");
+            this.status = tr("operationComplete");
+            this.emit();
+        }
+        return result;
+    }
+    async startDownloadForCurrent(quality = this.settings.qualityHeight) {
+        return this.startDownloadForApp(this.appId, this.gameTitle || "", quality);
+    }
+    async startDownloadForApp(appId, title = "", quality = this.settings.qualityHeight) {
+        if (!appId) {
+            return { ok: false };
+        }
+        const key = String(appId);
+        const youtubeId = this.settings.youtubeVideos[key] || this.youtubeVideoId || "";
+        const useYouTube = this.settings.preferredSources[key] === "youtube" && youtubeId;
+        const source = useYouTube ? "youtube" : "steam";
+        const value = useYouTube ? youtubeId : this.settings.steamMovieOverrides[key] || this.selectedSteamMovieId || "";
+        const sourceAppId = this.settings.steamAppOverrides[key] || (this.appId === appId ? this.sourceAppId : 0) || appId;
+        const result = await startTrailerDownload(appId, source, value, quality, title, sourceAppId);
+        if (result?.ok && result.jobId) {
+            this.watchTrailerJob(result.jobId, [appId], title || `App ${appId}`);
+        }
+        return result;
+    }
+    async startDownloadSelectionForApp(appId, title, quality, source, value, sourceAppId = 0) {
+        if (!appId || !["steam", "youtube"].includes(source)) {
+            return { ok: false };
+        }
+        const result = await startTrailerDownload(appId, source, value || "", quality, title || "", sourceAppId || appId);
+        if (result?.ok && result.jobId) {
+            this.watchTrailerJob(result.jobId, [appId], title || `App ${appId}`);
+        }
+        return result;
+    }
+    watchTrailerJob(jobId, appIds = [], title = "") {
+        if (this.trailerJobTimer) {
+            clearTimeout(this.trailerJobTimer);
+        }
+        this.trailerJob = { ok: true, jobId, state: "queued", current: 0, total: Math.max(1, appIds.length) };
+        this.trailerJobAppIds = appIds;
+        const poll = async () => {
+            try {
+                const job = await getTrailerJob(jobId);
+                this.trailerJob = job;
+                this.status = job?.state === "running" ? tr("downloadRunning") : this.status;
+                this.emit();
+                if (["done", "failed", "cancelled"].includes(job?.state)) {
+                    this.trailerJobTimer = undefined;
+                    if (job.state === "done") {
+                        await this.refreshLocalTrailers();
+                        const preferredSources = { ...this.settings.preferredSources };
+                        for (const appId of this.trailerJobAppIds || []) {
+                            if (this.localTrailers[String(appId)]) preferredSources[String(appId)] = "local";
+                        }
+                        this.updateSettings({ preferredSources });
+                        this.status = tr("operationComplete");
+                        this.emit();
+                        if ((this.trailerJobAppIds || []).length > 1 || job?.kind === "bulk") {
+                            const result = job.result || job;
+                            showTrailerHeroNotice(tr("bulkDone", { ok: Number(result.downloaded || 0), skipped: Number(result.skipped || 0), failed: Number(result.failed || 0) }));
+                        }
+                        else showTrailerHeroNotice(tr("downloadAssigned", { title: title || this.gameTitle || `App ${appIds[0] || ""}` }));
+                    }
+                    else if (job.state === "failed") {
+                        showTrailerHeroNotice(job.error || job.result?.error || tr("noPreview"));
+                    }
+                    return;
+                }
+            }
+            catch (error) {
+                this.trailerJob = { ok: false, state: "failed", error: error instanceof Error ? error.message : String(error) };
+                this.emit();
+                return;
+            }
+            this.trailerJobTimer = window.setTimeout(poll, 700);
+        };
+        void poll();
+    }
+    async cancelCurrentTrailerJob() {
+        const jobId = this.trailerJob?.jobId;
+        if (!jobId) return;
+        await cancelTrailerJob(jobId);
+    }
+    async deleteLocalForCurrent() {
+        return this.deleteLocalForApp(this.appId);
+    }
+    async deleteLocalForApp(appId) {
+        if (!appId) return { ok: false };
+        const result = await deleteLocalTrailer(appId);
+        if (result?.ok) {
+            await this.refreshLocalTrailers();
+            const preferredSources = { ...this.settings.preferredSources };
+            if (preferredSources[String(appId)] === "local") preferredSources[String(appId)] = "auto";
+            this.updateSettings({ preferredSources });
+        }
+        return result;
+    }
+    async deleteAllLocal() {
+        const result = await deleteAllLocalTrailers();
+        if (result?.ok) {
+            this.localTrailers = {};
+            const preferredSources = Object.fromEntries(Object.entries(this.settings.preferredSources)
+                .map(([appId, source]) => [appId, source === "local" ? "auto" : source]));
+            this.updateSettings({ preferredSources });
+        }
+        return result;
+    }
+    async cleanupUnassignedLocal() {
+        return cleanupUnassignedTrailers();
     }
     refresh() {
         if (this.appId) {
@@ -3956,7 +5111,8 @@ class TrailerHeroController {
         return {
             ...this.settings,
             steamAutoSearchFailures: this.steamAutoSearchFailures,
-            youtubeDirectStreams: this.youtubeDirectStreams
+            youtubeDirectStreams: this.youtubeDirectStreams,
+            localTrailers: this.localTrailers
         };
     }
     async installOrUpdate() {
@@ -4086,12 +5242,14 @@ class TrailerHeroController {
         resolveYouTubeStreams(videoId, qualityHeight)
             .then((result) => {
             const candidates = Array.isArray(result?.candidates) ? result.candidates : [];
+            const audioCandidates = Array.isArray(result?.audioCandidates) ? result.audioCandidates : [];
             if (result?.ok && candidates.length) {
                 this.rememberYouTubeDirectEntry(key, {
                     videoId,
                     qualityHeight,
                     createdAt: Date.now(),
-                    candidates
+                    candidates,
+                    audioCandidates
                 });
             }
             else {
@@ -4101,7 +5259,8 @@ class TrailerHeroController {
                     createdAt: Date.now(),
                     failed: true,
                     error: result?.error || tr("youtubeDirectUnavailable"),
-                    candidates: []
+                    candidates: [],
+                    audioCandidates: []
                 });
             }
             this.installOrUpdate();
@@ -4113,7 +5272,8 @@ class TrailerHeroController {
                 createdAt: Date.now(),
                 failed: true,
                 error: error instanceof Error ? error.message : tr("youtubeDirectUnavailable"),
-                candidates: []
+                candidates: [],
+                audioCandidates: []
             });
             this.installOrUpdate();
         })
@@ -4185,7 +5345,7 @@ class TrailerHeroController {
         }
         this.applyRemoteResult(result);
     }
-    async collectNonSteamApps() {
+    async collectNonSteamApps(shortcutsOnly = true) {
         const script = `(() => {
           const apps = new Map();
           const windows = [];
@@ -4253,7 +5413,7 @@ class TrailerHeroController {
           const add = (entry) => {
             if (!entry) return;
             const appId = readId(entry);
-            if (!appId || !isShortcut(entry, appId)) return;
+            if (!appId || (${shortcutsOnly ? "true" : "false"} && !isShortcut(entry, appId))) return;
             const title = readTitle(entry, appId);
             if (!title || badTitle(title)) return;
             apps.set(String(appId), { appId, title });
@@ -4287,6 +5447,30 @@ class TrailerHeroController {
         })()`;
         const result = await this.withTimeout(evalInBigPicture(script), 30000);
         return Array.isArray(result?.apps) ? result.apps : [];
+    }
+    async startBulkLocalDownload(quality) {
+        const apps = await this.collectNonSteamApps(false);
+        if (!apps.length) {
+            return { ok: false, error: tr("noGameRecognized") };
+        }
+        const items = apps.map((app) => {
+            const key = String(app.appId);
+            const preferred = this.settings.preferredSources[key] || "auto";
+            const youtubeId = this.settings.youtubeVideos[key] || "";
+            const useYouTube = preferred === "youtube" && youtubeId;
+            return {
+                appid: app.appId,
+                title: app.title,
+                source: useYouTube ? "youtube" : preferred === "steam" ? "steam" : "auto",
+                value: useYouTube ? youtubeId : this.settings.steamMovieOverrides[key] || "",
+                sourceAppId: this.settings.steamAppOverrides[key] || app.appId
+            };
+        });
+        const result = await startBulkDownload(items, quality);
+        if (result?.ok && result.jobId) {
+            this.watchTrailerJob(result.jobId, apps.map((app) => app.appId));
+        }
+        return result;
     }
 
     async reassignYouTubeForNonSteamGames() {
@@ -4412,155 +5596,996 @@ const isLikelyBadYouTubeQuery = (value) => {
         /^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ore|min|mins?|minutes?|secondi?|seconds?)$/i.test(text) ||
         /(?:visualizza notifiche|view notifications|notifications|notifiche|ultimo avvio|last played|tempo di gioco|play time|gioca ultimo|play last)/i.test(lower));
 };
+const TRAILERHERO_ROUTE = "/trailerhero/:appid";
+const TRAILERHERO_MENU_KEY = "trailerhero-game-settings";
+const trailerHeroPageStyles = `
+  .thQam,.thQam *,.thGamePage,.thGamePage *{box-sizing:border-box}
+  .thQam{width:100%;max-width:100%;min-width:0;padding:0 2px 18px;overflow:hidden;color:#fff}
+  .thQamHeading{margin:13px 2px 7px;color:rgba(255,255,255,.68);font-size:12px;font-weight:800;text-transform:uppercase}
+  .thQamCard{width:100%;min-width:0;margin:0 0 9px;padding:12px;border:1px solid rgba(255,255,255,.09);border-radius:8px;background:rgba(255,255,255,.04);overflow:hidden}
+  .thQamCard>*{border-top:0!important;border-bottom:0!important;box-shadow:none!important;background-image:none!important}
+  .thQamCard>*:before,.thQamCard>*:after{border:0!important;box-shadow:none!important;background:none!important}
+  .thQamCard [class*="PanelSectionRow"],.thQamCard [class*="ToggleField"],.thQamCard [class*="DropdownItem"]{width:100%!important;max-width:100%!important;border-top:0!important;border-bottom:0!important;box-shadow:none!important;background-image:none!important}
+  .thQamCard [class*="Dropdown"]{max-width:100%!important}
+  .thQamButtonStack{display:grid;gap:7px;width:100%;margin-top:8px}
+  .thQamButton.DialogButton{width:100%!important;min-width:0!important;min-height:40px!important;margin:0!important;padding:0 10px!important;border-radius:7px!important;color:#fff!important;font-size:14px!important}
+  .thQamButton.DialogButton:hover,.thQamButton.DialogButton:focus,.thQamButton.DialogButton.gpfocus{background:rgba(240,180,41,.16)!important;color:#fff!important;border-color:rgba(240,180,41,.92)!important;box-shadow:0 0 0 2px rgba(240,180,41,.22)!important}
+  .thQamButton.DialogButton:disabled{opacity:.35!important}
+  .thQamDanger.DialogButton{background:rgba(200,42,42,.18)!important;border:1px solid rgba(232,72,72,.48)!important;color:#ffaaaa!important}
+  .thQamDanger.DialogButton:focus,.thQamDanger.DialogButton.gpfocus{background:#c62828!important;color:#fff!important;border-color:#ffaaaa!important;box-shadow:inset 0 0 0 2px rgba(255,255,255,.85)!important}
+  .thQamStatus{width:100%;margin-top:9px;padding:10px;border-radius:7px;background:rgba(240,180,41,.09);font-size:12px;line-height:1.35}
+  .thGamePage{position:fixed;inset:0;z-index:10;width:100%;min-height:100vh;overflow-y:auto;overflow-x:hidden;padding:30px max(36px,calc((100vw - 1460px)/2)) 110px;color:#fff;background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 360px),#080909}
+  .thGamePage .DialogButton{border-radius:6px!important;min-height:42px!important}
+  .thGameHeader{display:grid;grid-template-columns:42px minmax(0,1fr);gap:14px;align-items:center;margin-bottom:18px}
+  .thIconButton{width:42px!important;min-width:42px!important;height:42px!important;min-height:42px!important;padding:0!important;display:grid!important;place-items:center!important}
+  .thIconButton:hover,.thIconButton:focus,.thIconButton.gpfocus{background:#f0b429!important;color:#151515!important;box-shadow:0 0 0 3px rgba(255,255,255,.9)!important}
+  .thIconButton:hover svg,.thIconButton:focus svg,.thIconButton.gpfocus svg{color:#151515!important;fill:currentColor!important}
+  .thGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:0;align-items:start;margin-top:16px}
+  .thCard{width:100%;min-width:0;margin:0 0 16px;padding:18px;border:1px solid rgba(255,255,255,.1);border-radius:7px;background:rgba(255,255,255,.045);overflow:hidden}
+  .thCard h2{margin:0 0 4px;font-size:20px}.thCardDesc{font-size:13px;line-height:1.4;opacity:.62;margin-bottom:12px}
+  .thActiveCard{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(340px,.88fr);gap:20px;align-items:start}
+  .thActivePreview,.thActiveSettings{min-width:0}.thActiveSettings{padding-left:20px;border-left:1px solid rgba(255,255,255,.09)}
+  .thDeleteFile.DialogButton{width:100%!important;margin:12px 0 0!important;border:1px solid rgba(255,110,110,.7)!important;background:rgba(170,30,30,.22)!important;color:#ffd2d2!important}.thDeleteFile.DialogButton:hover,.thDeleteFile.DialogButton:focus,.thDeleteFile.DialogButton.gpfocus{background:#c73535!important;color:#fff!important;outline:3px solid #fff!important;outline-offset:2px!important;box-shadow:0 0 0 2px rgba(8,9,9,.95)!important}
+  .thPreview{position:relative;width:100%;aspect-ratio:16/9;display:grid;place-items:center;overflow:hidden;border-radius:7px;background:#000}
+  .thPreview video,.thPreview iframe,.thPreview img{width:100%;height:100%;border:0;object-fit:contain;background:#000}
+  .thActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:11px}
+  .thActions .DialogButton{width:100%!important;min-width:0!important;margin:0!important}
+  .thModeChoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+  .thModeChoices .DialogButton{width:100%!important;min-height:106px!important;margin:0!important;padding:14px 10px!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:9px!important;text-align:center!important}
+  .thModeIcon{display:grid;place-items:center;width:34px;height:34px;font-size:28px;line-height:1;color:rgba(255,255,255,.9)}.thModeIcon svg{display:block;width:28px;height:28px}
+  .thModeChoices .thModeSelected.DialogButton{background:#f0b429!important;border:1px solid #f0b429!important;color:#151515!important;box-shadow:none!important}.thModeChoices .thModeSelected .thModeIcon{color:#151515!important}
+  .thModeChoices .DialogButton:hover,.thModeChoices .DialogButton:focus,.thModeChoices .DialogButton.gpfocus,
+  .thActions .DialogButton:hover,.thActions .DialogButton:focus,.thActions .DialogButton.gpfocus{outline:3px solid #fff!important;outline-offset:3px!important;filter:contrast(1.14) brightness(1.08)!important;transform:translateY(-1px)!important;box-shadow:0 0 0 2px rgba(8,9,9,.92),0 5px 18px rgba(0,0,0,.42)!important}
+  .thModeChoices .DialogButton:hover,.thModeChoices .DialogButton:focus,.thModeChoices .DialogButton.gpfocus{background:#f4f4f4!important;color:#151515!important}.thModeChoices .DialogButton:hover .thModeIcon,.thModeChoices .DialogButton:focus .thModeIcon,.thModeChoices .DialogButton.gpfocus .thModeIcon{color:#151515!important}
+  .thModeChoices .thModeSelected.DialogButton:hover,.thModeChoices .thModeSelected.DialogButton:focus,.thModeChoices .thModeSelected.DialogButton.gpfocus{background:#f0b429!important;box-shadow:0 0 0 2px rgba(8,9,9,.92),0 5px 18px rgba(0,0,0,.42)!important}
+  .thSearchRow{display:grid;grid-template-columns:minmax(0,1fr) 136px;gap:10px;align-items:stretch;width:100%;min-width:0;margin-top:14px}.thSearchRow .DialogButton{width:136px!important;min-width:136px!important;height:100%!important;margin:0!important;justify-self:end!important}
+  .thResult{display:grid!important;grid-template-columns:144px minmax(0,1fr) 112px 116px 112px!important;gap:10px!important;align-items:center!important;width:100%!important;min-height:101px!important;height:auto!important;margin:0!important;padding:10px!important;text-align:left!important;border-bottom:1px solid rgba(255,255,255,.075)!important;border-radius:0;background:transparent!important}
+  .thResult:hover,.thResult:focus,.thResult.gpfocus{outline:3px solid #fff!important;outline-offset:2px!important;border-color:#f0b429!important;background:rgba(240,180,41,.13)!important;transform:translateY(-1px)!important}
+  .thResult.thResultSelected{border-color:#f0b429!important;background:rgba(240,180,41,.2)!important;box-shadow:inset 4px 0 0 #f0b429!important}
+  .thResult .DialogButton{width:100%!important;min-width:0!important;height:44px!important;min-height:44px!important;margin:0!important;padding:0 9px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;font-size:13px!important;white-space:nowrap!important}
+  .thResult .DialogButton:hover,.thResult .DialogButton:focus,.thResult .DialogButton.gpfocus{position:relative!important;z-index:2!important;background:#f0b429!important;color:#151515!important;outline:3px solid #fff!important;outline-offset:2px!important;box-shadow:0 0 0 2px rgba(8,9,9,.95)!important;transform:translateY(-1px)!important}.thResult .DialogButton svg{width:17px;height:17px;pointer-events:none}
+  .thResult .thResultActionSelected.DialogButton{border:1px solid #f0b429!important;background:rgba(240,180,41,.2)!important;color:#fff!important}.thResult .thResultActionSelected.DialogButton:hover,.thResult .thResultActionSelected.DialogButton:focus,.thResult .thResultActionSelected.DialogButton.gpfocus{background:#f0b429!important;color:#151515!important}
+  .thResultThumb{width:144px;height:81px;aspect-ratio:16/9;object-fit:cover;border-radius:5px;background:linear-gradient(135deg,#222,#111);display:block}
+  .thResultPlaceholder{width:144px;height:81px;border-radius:5px;background:linear-gradient(135deg,#242424,#101010);display:grid;place-items:center;color:rgba(255,255,255,.42);font-size:11px;text-transform:uppercase}
+  .thInlinePreview{grid-column:1/3;width:min(460px,100%);max-width:460px;aspect-ratio:16/9;max-height:259px;justify-self:start;margin:4px 0 2px;border-radius:6px;overflow:hidden;background:#000}.thInlinePreview .thPreview{width:100%;max-height:259px}
+  .thInlinePreview video,.thInlinePreview iframe,.thInlinePreview img{width:100%;height:100%;border:0;background:#000;object-fit:contain}
+  .thProgress{height:7px;margin-top:10px;border-radius:5px;overflow:hidden;background:rgba(255,255,255,.14)}
+  .thProgress>div{height:100%;background:#f0b429;transition:width .2s ease}
+  @media(max-width:900px){.thActiveCard{grid-template-columns:minmax(0,1fr)}.thActiveSettings{padding-left:0;padding-top:16px;border-left:0;border-top:1px solid rgba(255,255,255,.09)}}
+`;
+function showTrailerHeroNotice(body) {
+    try {
+        toaster?.toast?.({ title: "TrailerHero", body: String(body || tr("operationComplete")) });
+    }
+    catch {
+    }
+}
+function confirmTrailerHeroAction(body) {
+    return new Promise((resolve) => {
+        let finished = false;
+        let modal;
+        const finish = (value) => {
+            if (finished) return;
+            finished = true;
+            try { modal?.Close?.(); }
+            catch { }
+            resolve(value);
+        };
+        try {
+            const content = SP_JSX.jsxs(DFL.ModalRoot, { closeModal: () => finish(false), children: [
+                SP_JSX.jsx("div", { style: { fontSize: "1rem", lineHeight: 1.4, marginBottom: 16, whiteSpace: "normal" }, children: body }),
+                SP_JSX.jsxs(DFL.Focusable, { "flow-children": "row", noFocusRing: true, style: { display: "flex", justifyContent: "flex-end", gap: 8 }, children: [
+                    SP_JSX.jsx(DFL.DialogButton, { focusable: true, onClick: () => finish(false), children: tr("cancel") }),
+                    SP_JSX.jsx(DFL.DialogButton, { focusable: true, onClick: () => finish(true), children: tr("confirm") })
+                ] })
+            ] });
+            modal = DFL.showModal?.(content, undefined, { strTitle: "TrailerHero" });
+        }
+        catch {
+            modal = undefined;
+        }
+        if (!modal) {
+            try { finish(Boolean(window.confirm?.(body))); }
+            catch { finish(false); }
+        }
+    });
+}
+function readTrailerHeroRouteAppId() {
+    const locationText = `${globalThis.location?.pathname || ""}${globalThis.location?.hash || ""}`;
+    const match = locationText.match(/\/trailerhero\/(\d+)/i);
+    const appId = Number(match?.[1] || 0);
+    return Number.isInteger(appId) && appId > 0 ? appId : 0;
+}
+function normalizeMenuAppId(value) {
+    const appId = Number(value?.trailerHeroAppId ?? value?.appid ?? value?.appId ?? value?.appID ?? value?.app_id ?? value?.unAppID ?? value?.nAppID ?? value?.m_unAppID ?? value?.gameid ?? value?.gameId ?? value);
+    return Number.isInteger(appId) && appId > 0 ? appId : 0;
+}
+function getSteamAppName(appId) {
+    if (!appId) {
+        return "";
+    }
+    const stores = [
+        globalThis.appStore,
+        globalThis.SteamUIStore?.m_AppStore,
+        globalThis.appDetailsStore,
+        globalThis.Router?.WindowStore?.GamepadUIMainWindowInstance?.BrowserWindow?.appStore
+    ];
+    for (const store of stores) {
+        if (!store) {
+            continue;
+        }
+        const entries = [];
+        for (const getter of ["GetAppOverviewByAppID", "GetAppOverview", "GetAppDetails"]) {
+            try {
+                if (typeof store[getter] === "function") {
+                    entries.push(store[getter](appId));
+                }
+            }
+            catch {
+            }
+        }
+        try {
+            entries.push(store.m_mapAppOverview?.get?.(appId));
+            entries.push(store.m_mapAppDetails?.get?.(appId));
+            entries.push(store.m_mapApps?.get?.(appId));
+        }
+        catch {
+        }
+        for (const entry of entries.filter(Boolean)) {
+            for (const value of [entry.display_name, entry.localized_name, entry.name, entry.m_strName, entry.title, entry.strDisplayName]) {
+                const title = String(value || "").replace(/\s+/g, " ").trim();
+                if (title) {
+                    return title;
+                }
+            }
+        }
+    }
+    return `App ${appId}`;
+}
+function TrailerPreview({ preview, audioMode }) {
+    const videoRef = SP_REACT.useRef(null);
+    const audioRef = SP_REACT.useRef(null);
+    const iframeRef = SP_REACT.useRef(null);
+    const [videoFailed, setVideoFailed] = SP_REACT.useState(false);
+    SP_REACT.useEffect(() => {
+        setVideoFailed(false);
+    }, [preview?.url]);
+    SP_REACT.useEffect(() => {
+        const video = videoRef.current;
+        const audio = audioRef.current;
+        if (!video) {
+            return undefined;
+        }
+        const trailerAudio = audioMode === "trailer";
+        const syncAudio = () => {
+            if (!audio || Math.abs(Number(audio.currentTime || 0) - Number(video.currentTime || 0)) < 0.35) {
+                return;
+            }
+            try {
+                audio.currentTime = video.currentTime;
+            }
+            catch {
+            }
+        };
+        const playAudio = () => {
+            if (!audio || !trailerAudio) {
+                return;
+            }
+            syncAudio();
+            void audio.play().catch(() => undefined);
+        };
+        const pauseAudio = () => audio?.pause?.();
+        video.muted = !trailerAudio || Boolean(audio);
+        video.defaultMuted = video.muted;
+        if (audio) {
+            audio.muted = !trailerAudio;
+            audio.defaultMuted = !trailerAudio;
+            audio.volume = trailerAudio ? 1 : 0;
+        }
+        video.addEventListener("play", playAudio);
+        video.addEventListener("pause", pauseAudio);
+        video.addEventListener("seeked", syncAudio);
+        video.addEventListener("timeupdate", syncAudio);
+        const start = async () => {
+            try {
+                await video.play();
+                playAudio();
+            }
+            catch {
+                video.muted = true;
+                if (audio) {
+                    audio.muted = true;
+                }
+                await video.play().catch(() => undefined);
+            }
+        };
+        void start();
+        return () => {
+            video.removeEventListener("play", playAudio);
+            video.removeEventListener("pause", pauseAudio);
+            video.removeEventListener("seeked", syncAudio);
+            video.removeEventListener("timeupdate", syncAudio);
+            video.pause();
+            audio?.pause?.();
+        };
+    }, [preview?.url, preview?.audioUrl, audioMode]);
+    if (!preview || preview.kind === "loading") {
+        return SP_JSX.jsx("div", { className: "thPreview", children: SP_JSX.jsx(DFL.Spinner, {}) });
+    }
+    if (preview.kind === "preparing") {
+        return SP_JSX.jsxs("div", { className: "thPreview", style: { position: "relative" }, children: [
+            preview.poster ? SP_JSX.jsx("img", { src: preview.poster, alt: preview.title || tr("previewTrailer"), style: { width: "100%", height: "100%", objectFit: "cover", opacity: 0.72 } }) : null,
+            SP_JSX.jsx("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.2)" }, children: SP_JSX.jsx(DFL.Spinner, {}) })
+        ] });
+    }
+    if (preview.kind === "youtube") {
+        const src = `https://www.youtube-nocookie.com/embed/${preview.videoId}?enablejsapi=1&autoplay=1&mute=1&controls=0&playsinline=1&rel=0&loop=1&playlist=${preview.videoId}`;
+        const startYouTube = () => {
+            const target = iframeRef.current?.contentWindow;
+            if (!target) return;
+            const command = (func, args = []) => target.postMessage(JSON.stringify({ event: "command", func, args }), "*");
+            command("playVideo");
+            if (audioMode === "trailer") command("unMute");
+        };
+        return SP_JSX.jsx("div", { className: "thPreview", children: SP_JSX.jsx("iframe", { ref: iframeRef, className: "trailerhero-video", src, allow: "autoplay; encrypted-media; picture-in-picture", allowFullScreen: true, onLoad: startYouTube, title: preview.title || tr("previewTrailer") }) });
+    }
+    if (preview.kind !== "video" || !preview.url) {
+        return SP_JSX.jsx("div", { className: "thPreview", children: SP_JSX.jsx("div", { style: { padding: 24, textAlign: "center", opacity: 0.66 }, children: tr("noPreview") }) });
+    }
+    if (videoFailed && preview.poster) {
+        return SP_JSX.jsx("div", { className: "thPreview", children: SP_JSX.jsx("img", { src: preview.poster, alt: preview.title || tr("previewTrailer") }) });
+    }
+    return SP_JSX.jsxs("div", { className: "thPreview", children: [
+        SP_JSX.jsx("video", { ref: videoRef, src: preview.url, poster: preview.poster || undefined, autoPlay: true, playsInline: true, loop: true, controls: false, preload: "auto", crossOrigin: "anonymous", onError: () => setVideoFailed(true) }),
+        preview.audioUrl ? SP_JSX.jsx("audio", { ref: audioRef, src: preview.audioUrl, preload: "auto", loop: true, crossOrigin: "anonymous" }) : null
+    ] });
+}
+
+const TRAILERHERO_CHROME_STYLE_ID = "th-fullscreen-chrome-style";
+let trailerHeroChromeLease = 0;
+let trailerHeroChromeObservers = [];
+let trailerHeroChromeFrame = 0;
+let trailerHeroChromeReleaseTimer = 0;
+const trailerHeroChromeRefreshTimers = new Set();
+let trailerHeroFocusTraps = [];
+const trailerHeroChromeTouched = new Map();
+const trailerHeroChromeSelectors = [
+    "#header", "#Footer",
+    '[class*="BasicFooter"]', '[class*="FooterLegend"]', '[class*="QuickAccessFooter"]',
+    '[class*="GamepadFooter"]', '[class*="GamepadHeader"]', '[class*="HeaderStatus"]',
+    '[class*="StatusIcons"]', '[class*="TopBar"]', '[class*="SearchBar"]',
+    '[class*="SearchBox"]', '[class*="GamepadSearch"]', '[data-featuretarget*="search" i]',
+    '[data-th-fullscreen-chrome="true"]'
+];
+function trailerHeroRouteDocuments() {
+    if (typeof document === "undefined") return [];
+    const docs = [];
+    const addDocument = (candidate) => { try { if (candidate?.documentElement && !docs.includes(candidate)) docs.push(candidate); } catch { } };
+    const addWindowDocument = (candidate) => {
+        if (!candidate) return;
+        try { addDocument(candidate.document); } catch { }
+        try { addDocument(candidate.window?.document); } catch { }
+        try { addDocument(candidate.m_Window?.document); } catch { }
+        try { addDocument(candidate.m_popup?.document); } catch { }
+        try { addDocument(candidate.BrowserWindow?.document); } catch { }
+        try { addDocument(candidate.GetWindow?.()?.document); } catch { }
+    };
+    addDocument(document);
+    try { addDocument(window.top?.document); } catch { }
+    try { addDocument(window.parent?.document); } catch { }
+    try { addDocument(window.opener?.document); } catch { }
+    const store = DFL.Router?.WindowStore;
+    addWindowDocument(store?.GamepadUIMainWindowInstance);
+    if (Array.isArray(store?.SteamUIWindows)) store.SteamUIWindows.forEach(addWindowDocument);
+    return docs;
+}
+function ensureTrailerHeroChromeStyle(doc) {
+    const css = `
+      html.thFullscreenActive ${trailerHeroChromeSelectors.join(",html.thFullscreenActive ")},
+      body.thFullscreenActive ${trailerHeroChromeSelectors.join(",body.thFullscreenActive ")} {
+        display:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;
+        transition:none!important;animation:none!important;
+      }`;
+    const existing = doc.getElementById(TRAILERHERO_CHROME_STYLE_ID);
+    if (existing) { existing.textContent = css; return; }
+    const style = doc.createElement("style");
+    style.id = TRAILERHERO_CHROME_STYLE_ID;
+    style.textContent = css;
+    doc.head.appendChild(style);
+}
+function isTrailerHeroVirtualKeyboardElement(element) {
+    let current = element;
+    for (let depth = 0; current && depth < 10; depth += 1, current = current.parentElement) {
+        const className = typeof current.className === "string" ? current.className : "";
+        const identity = `${current.id || ""} ${className} ${current.getAttribute("data-featuretarget") || ""} ${current.getAttribute("aria-label") || ""}`.toLowerCase();
+        if (identity.includes("virtualkeyboard") || identity.includes("virtual-keyboard") || identity.includes("onscreenkeyboard") || identity.includes("on-screen keyboard") || identity.includes("keyboardmodal") || identity.includes("keyboard_modal")) return true;
+    }
+    return false;
+}
+function hideTrailerHeroChromeElement(element) {
+    if (!trailerHeroChromeTouched.has(element)) {
+        trailerHeroChromeTouched.set(element, {
+            cssText: element.style.cssText, ariaHidden: element.getAttribute("aria-hidden"),
+            inert: Boolean(element.inert), tabIndex: element.getAttribute("tabindex")
+        });
+    }
+    element.dataset.thFullscreenChrome = "true";
+    for (const name of ["display", "opacity", "visibility", "pointer-events", "transition", "animation"])
+        element.style.setProperty(name, name === "display" ? "none" : name === "opacity" ? "0" : name === "visibility" ? "hidden" : name === "pointer-events" ? "none" : "none", "important");
+    element.setAttribute("aria-hidden", "true");
+    element.setAttribute("tabindex", "-1");
+    try { element.inert = true; } catch { }
+}
+function markTrailerHeroSteamChrome(doc) {
+    if (!doc.documentElement.classList.contains("thFullscreenActive")) return;
+    doc.querySelectorAll(trailerHeroChromeSelectors.join(",")).forEach((element) => {
+        if (!element.closest(".thGamePage") && !isTrailerHeroVirtualKeyboardElement(element)) hideTrailerHeroChromeElement(element);
+    });
+    const targetWindow = doc.defaultView ?? window;
+    const viewportWidth = targetWindow.innerWidth;
+    const viewportHeight = targetWindow.innerHeight;
+    doc.querySelectorAll("body *").forEach((element) => {
+        if (element.closest(".thGamePage") || element.dataset.thFullscreenChrome === "true" || isTrailerHeroVirtualKeyboardElement(element)) return;
+        const rect = element.getBoundingClientRect();
+        if (rect.width < viewportWidth * .45 || rect.height <= 0 || rect.height > 190) return;
+        const computed = targetWindow.getComputedStyle(element);
+        if (!/^(fixed|absolute|sticky)$/.test(computed.position)) return;
+        const touchesTop = rect.top <= 12 && rect.bottom <= 194;
+        const touchesBottom = rect.bottom >= viewportHeight - 12 && rect.top >= viewportHeight - 194;
+        if (touchesTop || touchesBottom) hideTrailerHeroChromeElement(element);
+    });
+}
+function hideTrailerHeroSteamChrome() {
+    trailerHeroRouteDocuments().forEach((doc) => {
+        ensureTrailerHeroChromeStyle(doc);
+        doc.documentElement.classList.add("thFullscreenActive");
+        doc.body?.classList.add("thFullscreenActive");
+        markTrailerHeroSteamChrome(doc);
+    });
+}
+function scheduleTrailerHeroChromeMark() {
+    if (trailerHeroChromeFrame) window.cancelAnimationFrame(trailerHeroChromeFrame);
+    trailerHeroChromeFrame = window.requestAnimationFrame(() => { trailerHeroChromeFrame = 0; hideTrailerHeroSteamChrome(); });
+}
+function scheduleTrailerHeroChromeBurst() {
+    trailerHeroChromeRefreshTimers.forEach((timer) => window.clearTimeout(timer));
+    trailerHeroChromeRefreshTimers.clear();
+    [50, 140, 320, 650, 1100].forEach((delay) => {
+        const timer = window.setTimeout(() => { trailerHeroChromeRefreshTimers.delete(timer); hideTrailerHeroSteamChrome(); }, delay);
+        trailerHeroChromeRefreshTimers.add(timer);
+    });
+}
+function retainTrailerHeroChrome() {
+    trailerHeroChromeLease += 1;
+    if (trailerHeroChromeReleaseTimer) { window.clearTimeout(trailerHeroChromeReleaseTimer); trailerHeroChromeReleaseTimer = 0; }
+    hideTrailerHeroSteamChrome();
+    trailerHeroChromeObservers.forEach((observer) => observer.disconnect());
+    trailerHeroChromeObservers = trailerHeroRouteDocuments().flatMap((doc) => {
+        if (!doc.body) return [];
+        const observer = new MutationObserver(scheduleTrailerHeroChromeMark);
+        observer.observe(doc.body, { childList: true, subtree: true });
+        return [observer];
+    });
+    trailerHeroFocusTraps.forEach(({ doc, handler }) => doc.removeEventListener("focusin", handler, true));
+    trailerHeroFocusTraps = trailerHeroRouteDocuments().map((doc) => {
+        const handler = (event) => {
+            const page = doc.querySelector(".thGamePage");
+            if (!page || page.contains(event.target)) return;
+            event.preventDefault?.();
+            event.stopImmediatePropagation?.();
+            const next = page.querySelector('button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"]),[role="button"]');
+            next?.focus?.({ preventScroll: true });
+            next?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+        };
+        doc.addEventListener("focusin", handler, true);
+        return { doc, handler };
+    });
+    scheduleTrailerHeroChromeBurst();
+}
+function releaseTrailerHeroChrome() {
+    trailerHeroChromeLease = Math.max(0, trailerHeroChromeLease - 1);
+    if (trailerHeroChromeLease) return;
+    if (trailerHeroChromeReleaseTimer) window.clearTimeout(trailerHeroChromeReleaseTimer);
+    trailerHeroChromeReleaseTimer = window.setTimeout(() => {
+        trailerHeroChromeReleaseTimer = 0;
+        if (trailerHeroChromeLease || trailerHeroRouteDocuments().some((doc) => doc.querySelector(".thGamePage"))) return;
+        trailerHeroChromeRefreshTimers.forEach((timer) => window.clearTimeout(timer));
+        trailerHeroChromeRefreshTimers.clear();
+        trailerHeroChromeObservers.forEach((observer) => observer.disconnect());
+        trailerHeroChromeObservers = [];
+        if (trailerHeroChromeFrame) window.cancelAnimationFrame(trailerHeroChromeFrame);
+        trailerHeroChromeFrame = 0;
+        trailerHeroFocusTraps.forEach(({ doc, handler }) => doc.removeEventListener("focusin", handler, true));
+        trailerHeroFocusTraps = [];
+        trailerHeroRouteDocuments().forEach((doc) => {
+            doc.documentElement.classList.remove("thFullscreenActive");
+            doc.body?.classList.remove("thFullscreenActive");
+        });
+        trailerHeroChromeTouched.forEach((saved, element) => {
+            element.style.cssText = saved.cssText;
+            saved.ariaHidden === null ? element.removeAttribute("aria-hidden") : element.setAttribute("aria-hidden", saved.ariaHidden);
+            saved.tabIndex === null ? element.removeAttribute("tabindex") : element.setAttribute("tabindex", saved.tabIndex);
+            try { element.inert = saved.inert; } catch { }
+            delete element.dataset.thFullscreenChrome;
+        });
+        trailerHeroChromeTouched.clear();
+    }, 700);
+}
+function scrollTrailerHeroFocus(event) {
+    event?.target?.scrollIntoView?.({ block: "nearest", inline: "nearest", behavior: "smooth" });
+}
 function Content() {
     const [snapshot, setSnapshot] = SP_REACT.useState(controller.getSnapshot());
-    const [youtubeInput, setYoutubeInput] = SP_REACT.useState("");
-    const [youtubeQuery, setYoutubeQuery] = SP_REACT.useState("");
-    const [youtubeResults, setYoutubeResults] = SP_REACT.useState([]);
-    const [selectedYouTubeResultId, setSelectedYouTubeResultId] = SP_REACT.useState("");
-    const [youtubeSearchBusy, setYoutubeSearchBusy] = SP_REACT.useState(false);
-    const [youtubeSearchError, setYoutubeSearchError] = SP_REACT.useState("");
-    const [trimStartInput, setTrimStartInput] = SP_REACT.useState(String(DEFAULT_TRIM_START_SECONDS));
-    const [trimEndInput, setTrimEndInput] = SP_REACT.useState(String(DEFAULT_TRIM_END_SECONDS));
-    const previousYouTubeAppIdRef = SP_REACT.useRef(snapshot.appId);
+    const [busy, setBusy] = SP_REACT.useState("");
     SP_REACT.useEffect(() => controller.subscribe(setSnapshot), []);
-    SP_REACT.useEffect(() => {
-        const appChanged = previousYouTubeAppIdRef.current !== snapshot.appId;
-        previousYouTubeAppIdRef.current = snapshot.appId;
-        setYoutubeInput(snapshot.appId ? snapshot.settings.youtubeVideos[String(snapshot.appId)] ?? "" : "");
-        const savedQuery = snapshot.appId ? snapshot.settings.youtubeQueries?.[String(snapshot.appId)] ?? "" : "";
-        const safeSavedQuery = isLikelyBadYouTubeQuery(savedQuery) ? "" : savedQuery;
-        const safeGameTitle = isLikelyBadYouTubeQuery(snapshot.gameTitle) ? "" : snapshot.gameTitle;
-        setYoutubeQuery(safeSavedQuery || safeGameTitle || "");
-        if (appChanged) {
-            setYoutubeResults([]);
-            setSelectedYouTubeResultId("");
-            setYoutubeSearchError("");
-        }
-    }, [snapshot.appId, snapshot.gameTitle, snapshot.settings.youtubeVideos, snapshot.settings.youtubeQueries]);
-    SP_REACT.useEffect(() => {
-        setTrimStartInput(String(snapshot.trimStartSeconds ?? DEFAULT_TRIM_START_SECONDS));
-        setTrimEndInput(String(snapshot.trimEndSeconds ?? DEFAULT_TRIM_END_SECONDS));
-    }, [snapshot.appId, snapshot.trimStartSeconds, snapshot.trimEndSeconds]);
-    const currentBlocked = snapshot.appId
-        ? snapshot.settings.blockedApps.includes(snapshot.appId)
-        : false;
-    const currentSteamMovie = snapshot.steamMovies?.find((movie) => movie.id === snapshot.selectedSteamMovieId);
-    const currentCrtPreference = snapshot.appId
-        ? snapshot.settings.crtOverrides[String(snapshot.appId)] ?? "auto"
-        : "auto";
-    const selectedYouTubeResult = youtubeResults.find((result) => result.id === selectedYouTubeResultId || result.videoId === selectedYouTubeResultId);
-    const formatYouTubeResultLabel = (result, index) => {
-        const title = result.title || result.videoId || result.id || "YouTube result";
-        const channel = result.channel || result.uploader || "";
-        const length = result.length || "";
-        const suffix = [channel, length].filter(Boolean).join(" · ");
-        return `${index + 1}. ${title}${suffix ? ` — ${suffix}` : ""}`;
-    };
-    const handleYouTubeSearch = async () => {
-        const query = (isLikelyBadYouTubeQuery(youtubeQuery) ? "" : youtubeQuery.trim()) || (isLikelyBadYouTubeQuery(snapshot.gameTitle) ? "" : snapshot.gameTitle) || "";
-        if (!query) {
-            setYoutubeSearchError(tr("emptyYouTubeQuery"));
+    SP_REACT.useEffect(() => { void controller.refreshLocalTrailers(); }, [appId]);
+    const activeJob = ["queued", "running"].includes(snapshot.trailerJob?.state);
+    const run = async (name, action) => {
+        if (busy || activeJob) {
             return;
         }
-        setYoutubeSearchBusy(true);
-        setYoutubeSearchError("");
+        setBusy(name);
         try {
-            if (snapshot.appId) {
-                controller.setYouTubeQueryForCurrent(query);
-            }
-            const result = await searchYouTubeVideos(query, 10);
-            const results = Array.isArray(result?.results) ? result.results : [];
-            setYoutubeResults(results);
-            setSelectedYouTubeResultId(results[0]?.id || results[0]?.videoId || "");
-            if (!results.length) {
-                setYoutubeSearchError(result?.error || tr("noReadableYouTubeResults"));
+            const result = await action();
+            if (result?.ok === false) {
+                showTrailerHeroNotice(result.error || tr("noTrailerForApp", { appId: snapshot.appId || 0 }));
             }
         }
         catch (error) {
-            setYoutubeResults([]);
-            setSelectedYouTubeResultId("");
-            setYoutubeSearchError(error instanceof Error ? error.message : tr("youtubeSearchError"));
+            showTrailerHeroNotice(error instanceof Error ? error.message : String(error));
         }
         finally {
-            setYoutubeSearchBusy(false);
+            setBusy("");
         }
     };
-    const applySelectedYouTubeResult = (resultId) => {
-        const result = youtubeResults.find((item) => item.id === resultId || item.videoId === resultId);
-        const videoId = result?.videoId || result?.id || resultId;
-        if (!videoId) {
-            setYoutubeSearchError(tr("noReadableYouTubeResults"));
+    const jobTotal = Math.max(1, Number(snapshot.trailerJob?.total || 1));
+    const jobCurrent = Math.max(0, Number(snapshot.trailerJob?.current || 0));
+    const jobPercent = Math.max(0, Math.min(100, Math.round(jobCurrent / jobTotal * 100)));
+    return SP_JSX.jsxs(DFL.PanelSection, { children: [
+        SP_JSX.jsx("style", { children: trailerHeroPageStyles }),
+        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsxs(DFL.Focusable, { className: "thQam", "flow-children": "column", children: [
+            SP_JSX.jsx("div", { className: "thQamHeading", children: tr("globalSettings") }),
+            SP_JSX.jsxs("section", { className: "thQamCard", children: [
+                SP_JSX.jsx(DFL.ToggleField, { label: tr("active"), bottomSeparator: "none", checked: snapshot.settings.enabled, onChange: (checked) => controller.setEnabled(checked) }),
+                SP_JSX.jsx(DFL.DropdownItem, { label: tr("defaultAudio"), bottomSeparator: "none", rgOptions: [
+                { data: "theme", label: tr("defaultAudioTheme") },
+                { data: "trailer", label: tr("defaultAudioTrailer") }
+            ], selectedOption: snapshot.settings.defaultAudio, onChange: (option) => controller.setDefaultAudio(option.data) }),
+                SP_JSX.jsx(DFL.ToggleField, { label: tr("youtubeGlobal"), bottomSeparator: "none", checked: snapshot.settings.youtubeEnabled, onChange: (checked) => controller.setYouTubeEnabled(checked) }),
+                SP_JSX.jsx(DFL.ToggleField, { label: tr("youtubeAutoSearch"), bottomSeparator: "none", checked: snapshot.settings.youtubeAutoSearch, disabled: !snapshot.settings.youtubeEnabled, onChange: (checked) => controller.setYouTubeAutoSearch(checked) }),
+                SP_JSX.jsx(DFL.ToggleField, { label: tr("logoAssist"), bottomSeparator: "none", checked: snapshot.settings.logoAssistEnabled, onChange: (checked) => controller.setLogoAssist(checked) }),
+                SP_JSX.jsx(DFL.ToggleField, { label: tr("stopOnLaunch"), bottomSeparator: "none", checked: snapshot.settings.stopOnLaunchEnabled, onChange: (checked) => controller.setStopOnLaunch(checked) }),
+                SP_JSX.jsx(DFL.ToggleField, { label: tr("crtAutomatic"), bottomSeparator: "none", checked: snapshot.settings.crtLowResEnabled, onChange: (checked) => controller.setLowResCrt(checked) })
+            ] }),
+            SP_JSX.jsx("div", { className: "thQamHeading", children: tr("localLibrary") }),
+            SP_JSX.jsxs("section", { className: "thQamCard", children: [
+                SP_JSX.jsx(DFL.DropdownItem, { label: tr("qualityPreset", { quality: snapshot.settings.qualityHeight }), bottomSeparator: "none", rgOptions: QUALITY_OPTIONS.map((quality) => ({ data: quality, label: `${quality}p` })), selectedOption: snapshot.settings.qualityHeight, onChange: (option) => controller.updateSettings({ qualityHeight: Number(option.data) }) }),
+                SP_JSX.jsx(DFL.Focusable, { className: "thQamButtonStack", "flow-children": "column", children: SP_JSX.jsx(DFL.DialogButton, { focusable: true, className: "thQamButton", disabled: Boolean(busy) || activeJob, onClick: () => void run("bulk-download", () => controller.startBulkLocalDownload(snapshot.settings.qualityHeight)), children: tr("downloadAll") }) }),
+                activeJob ? SP_JSX.jsxs("div", { className: "thQamStatus", children: [
+                    SP_JSX.jsx("div", { children: tr("downloadProgress", { current: jobCurrent, total: jobTotal }) }),
+                    SP_JSX.jsx("div", { className: "thProgress", children: SP_JSX.jsx("div", { style: { width: `${jobPercent}%` } }) }),
+                    SP_JSX.jsx(DFL.DialogButton, { focusable: true, className: "thQamButton", onClick: () => void controller.cancelCurrentTrailerJob(), style: { marginTop: 9 }, children: tr("cancelDownload") })
+                ] }) : null
+            ] }),
+            SP_JSX.jsx("div", { className: "thQamHeading", children: tr("maintenance") }),
+            SP_JSX.jsx("section", { className: "thQamCard", children: SP_JSX.jsxs(DFL.Focusable, { className: "thQamButtonStack", "flow-children": "column", children: [
+                SP_JSX.jsx(DFL.DialogButton, { focusable: true, className: "thQamButton thQamDanger", disabled: Boolean(busy) || activeJob, onClick: () => {
+                    void confirmTrailerHeroAction(tr("confirmDeleteAll")).then((confirmed) => {
+                        if (confirmed) void run("delete-all", () => controller.deleteAllLocal());
+                    });
+                }, children: tr("deleteAll") }),
+                SP_JSX.jsx(DFL.DialogButton, { focusable: true, className: "thQamButton thQamDanger", disabled: Boolean(busy) || activeJob, onClick: () => {
+                    void confirmTrailerHeroAction(tr("confirmCleanup")).then((confirmed) => {
+                        if (confirmed) void run("cleanup", () => controller.cleanupUnassignedLocal());
+                    });
+                }, children: tr("cleanupTrailers") })
+            ] }) })
+        ] }) })
+    ] });
+}
+function GameSettingsPage({ appId }) {
+    const pageRef = SP_REACT.useRef(null);
+    const [snapshot, setSnapshot] = SP_REACT.useState(controller.getSnapshot());
+    const initialSnapshot = controller.getSnapshot();
+    const [gameTitle, setGameTitle] = SP_REACT.useState(initialSnapshot.appId === appId && initialSnapshot.gameTitle ? initialSnapshot.gameTitle : getSteamAppName(appId));
+    const [steamCatalog, setSteamCatalog] = SP_REACT.useState({ appId: 0, movies: [], movieId: "" });
+    const [preview, setPreview] = SP_REACT.useState({ kind: "loading" });
+    const [youtubeQuery, setYoutubeQuery] = SP_REACT.useState("");
+    const [youtubeResults, setYoutubeResults] = SP_REACT.useState([]);
+    const [youtubeInlinePreview, setYoutubeInlinePreview] = SP_REACT.useState({ id: "", preview: null });
+    const [youtubeBusy, setYoutubeBusy] = SP_REACT.useState(false);
+    const [youtubeError, setYoutubeError] = SP_REACT.useState("");
+    const [actionBusy, setActionBusy] = SP_REACT.useState("");
+    const [trimStart, setTrimStart] = SP_REACT.useState(String(DEFAULT_TRIM_START_SECONDS));
+    const [trimEnd, setTrimEnd] = SP_REACT.useState(String(DEFAULT_TRIM_END_SECONDS));
+    SP_REACT.useLayoutEffect(() => {
+        retainTrailerHeroChrome();
+        const frame = window.requestAnimationFrame(() => pageRef.current?.querySelector?.(".thIconButton")?.focus?.());
+        return () => { window.cancelAnimationFrame(frame); releaseTrailerHeroChrome(); };
+    }, []);
+    SP_REACT.useEffect(() => controller.subscribe(setSnapshot), []);
+    const settings = snapshot.settings;
+    const key = String(appId || "");
+    const snapshotLocalTrailer = snapshot.localTrailers[key];
+    const [routeLocalTrailer, setRouteLocalTrailer] = SP_REACT.useState(snapshotLocalTrailer);
+    const localTrailer = routeLocalTrailer ?? snapshotLocalTrailer;
+    const preferredSource = settings.preferredSources[key] || "auto";
+    const youtubeId = settings.youtubeVideos[key] || "";
+    const sourceAppId = settings.steamAppOverrides[key] || appId;
+    const catalogMovies = steamCatalog.appId === sourceAppId ? steamCatalog.movies : [];
+    const savedMovieId = settings.steamMovieOverrides[key] || "";
+    const selectedMovieId = catalogMovies.some((movie) => movie.id === savedMovieId)
+        ? savedMovieId
+        : steamCatalog.appId === sourceAppId ? steamCatalog.movieId : "";
+    const blocked = settings.blockedApps.includes(appId);
+    const activeJob = ["queued", "running"].includes(snapshot.trailerJob?.state);
+    const localKind = localTrailer?.source === "import" ? "imported" : localTrailer ? "downloaded" : "";
+    const trailerMode = preferredSource === "local" && localTrailer ? localKind : "streaming";
+    SP_REACT.useEffect(() => {
+        if (snapshot.appId === appId && snapshot.gameTitle) {
+            setGameTitle(snapshot.gameTitle);
+        }
+    }, [snapshot.appId, snapshot.gameTitle, appId]);
+    SP_REACT.useEffect(() => {
+        let cancelled = false;
+        void getLocalTrailer(appId).then((result) => {
+            if (!cancelled) setRouteLocalTrailer(result?.assigned ? result : undefined);
+        }).catch(() => {
+            if (!cancelled) setRouteLocalTrailer(snapshot.localTrailers[key]);
+        });
+        return () => { cancelled = true; };
+    }, [appId, key, snapshotLocalTrailer?.sha256, actionBusy, snapshot.trailerJob?.state]);
+    SP_REACT.useEffect(() => {
+        setYoutubeQuery(settings.youtubeQueries[key] || (isLikelyBadYouTubeQuery(gameTitle) ? "" : gameTitle));
+        setTrimStart(String(settings.trimStartOverrides[key] ?? DEFAULT_TRIM_START_SECONDS));
+        setTrimEnd(String(settings.trimEndOverrides[key] ?? DEFAULT_TRIM_END_SECONDS));
+    }, [appId, key, gameTitle]);
+    SP_REACT.useEffect(() => {
+        let cancelled = false;
+        if (!sourceAppId) {
+            setSteamCatalog({ appId: 0, movies: [], movieId: "" });
+            return () => { cancelled = true; };
+        }
+        setSteamCatalog({ appId: sourceAppId, movies: [], movieId: "" });
+        void getSteamTrailer(sourceAppId, true).then((result) => {
+            if (!cancelled && Number(result?.appid) === sourceAppId) {
+                setSteamCatalog({
+                    appId: sourceAppId,
+                    movies: Array.isArray(result?.movies) ? result.movies : [],
+                    movieId: String(result?.movieId || "")
+                });
+            }
+        }).catch(() => {
+            if (!cancelled) {
+                setSteamCatalog({ appId: sourceAppId, movies: [], movieId: "" });
+            }
+        });
+        return () => { cancelled = true; };
+    }, [sourceAppId]);
+    SP_REACT.useEffect(() => {
+        let cancelled = false;
+        const loadPreview = async () => {
+            const loadYouTubeMaterialized = async (videoId) => {
+                const prepared = await getYouTubeTrailerPreview(videoId, Math.min(1080, settings.qualityHeight));
+                if (!prepared?.ok) throw new Error(prepared?.error || tr("noPreview"));
+                const poster = prepared.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+                if (prepared.ready && prepared.url) {
+                    if (!cancelled) setPreview({ kind: "video", url: prepared.url, poster, title: gameTitle, source: "youtube", sourceId: videoId });
+                    return true;
+                }
+                if (!cancelled) setPreview({ kind: "preparing", poster, title: gameTitle, source: "youtube", sourceId: videoId });
+                for (let attempt = 0; attempt < 240 && !cancelled; attempt += 1) {
+                    await new Promise((resolve) => window.setTimeout(resolve, 700));
+                    const status = await getSteamTrailerPreviewStatus(prepared.previewId).catch(() => null);
+                    if (status?.ready && status.url) {
+                        if (!cancelled) setPreview({ kind: "video", url: status.url, poster, title: gameTitle, source: "youtube", sourceId: videoId });
+                        return true;
+                    }
+                    if (status?.ok === false) throw new Error(status.error || tr("noPreview"));
+                }
+                return false;
+            };
+            setPreview({ kind: "loading" });
+            if (!appId || !sourceAppId) {
+                setPreview({ kind: "missing" });
+                return;
+            }
+            if (preferredSource === "local" && localTrailer?.videoUrl) {
+                setPreview({ kind: "video", url: localTrailer.videoUrl, audioUrl: localTrailer.audioUrl || "", title: localTrailer.title || gameTitle, source: "local" });
+                return;
+            }
+            if (preferredSource === "youtube" && youtubeId) {
+                try {
+                    if (await loadYouTubeMaterialized(youtubeId)) return;
+                }
+                catch (error) {
+                    console.warn("[TrailerHero] YouTube preview materialization failed", error);
+                }
+                if (!cancelled) setPreview({ kind: "missing" });
+                return;
+            }
+            try {
+                const result = await getSteamTrailerPreview(sourceAppId, selectedMovieId, settings.qualityHeight);
+                if (cancelled) {
+                    return;
+                }
+                if (result?.ok && Number(result.appid) === sourceAppId && result.pending && result.previewId) {
+                    setPreview({ kind: "preparing", poster: result.poster || "", title: result.name || gameTitle, source: "steam", sourceId: result.movieId || selectedMovieId, sourceAppId });
+                    for (let attempt = 0; attempt < 180 && !cancelled; attempt += 1) {
+                        await new Promise((resolve) => window.setTimeout(resolve, 700));
+                        const status = await getSteamTrailerPreviewStatus(result.previewId).catch(() => null);
+                        if (status?.ready && status.url) {
+                            if (!cancelled) setPreview({ kind: "video", url: status.url, poster: result.poster || "", format: "mp4", streaming: false, title: result.name || gameTitle, source: "steam", sourceId: result.movieId || selectedMovieId, sourceAppId });
+                            return;
+                        }
+                        if (status?.ok === false) break;
+                    }
+                }
+                else if (result?.ok && Number(result.appid) === sourceAppId && result.url) {
+                    setPreview({ kind: "video", url: result.url, poster: result.poster || "", format: result.format || "file", streaming: Boolean(result.streaming), title: result.name || gameTitle, source: "steam", sourceId: result.movieId || selectedMovieId, sourceAppId });
+                    return;
+                }
+            }
+            catch {
+            }
+            if (!cancelled && youtubeId && preferredSource !== "steam") {
+                try {
+                    if (await loadYouTubeMaterialized(youtubeId)) return;
+                }
+                catch (error) {
+                    console.warn("[TrailerHero] YouTube fallback preview materialization failed", error);
+                }
+                if (!cancelled) setPreview({ kind: "missing" });
+            }
+            else if (!cancelled) {
+                setPreview({ kind: "missing" });
+            }
+        };
+        void loadPreview();
+        return () => { cancelled = true; };
+    }, [appId, preferredSource, localTrailer?.videoUrl, localTrailer?.audioUrl, localTrailer?.sha256, youtubeId, sourceAppId, selectedMovieId, settings.qualityHeight]);
+    const runAction = async (name, action, successMessage = tr("operationComplete")) => {
+        if (actionBusy || activeJob) {
+            return undefined;
+        }
+        setActionBusy(name);
+        try {
+            const result = await action();
+            if (result?.ok === false) {
+                showTrailerHeroNotice(result.error || tr("noPreview"));
+            }
+            else if (!result?.jobId && !result?.cancelled) {
+                showTrailerHeroNotice(successMessage);
+            }
+            return result;
+        }
+        catch (error) {
+            showTrailerHeroNotice(error instanceof Error ? error.message : String(error));
+            return undefined;
+        }
+        finally {
+            setActionBusy("");
+        }
+    };
+    const importTrailer = async () => {
+        const picked = await openFilePicker(0, "C:\\", true, false, undefined, undefined, false, true);
+        const path = String(picked?.realpath || picked?.path || "");
+        if (!path) {
+            return { ok: true, cancelled: true };
+        }
+        return controller.importTrailerForApp(appId, path, gameTitle);
+    };
+    const downloadTrailer = async () => {
+        let source = preview?.source === "youtube" ? "youtube" : "steam";
+        let value = source === "youtube" ? youtubeId : selectedMovieId;
+        let previewSourceAppId = sourceAppId;
+        if (preferredSource === "local" && localTrailer?.source === "youtube" && localTrailer.sourceId) {
+            source = "youtube";
+            value = localTrailer.sourceId;
+        }
+        else if (preferredSource === "local" && localTrailer?.source === "steam") {
+            source = "steam";
+            value = localTrailer.sourceId || selectedMovieId;
+        }
+        return controller.startDownloadSelectionForApp(appId, gameTitle, settings.qualityHeight, source, value, previewSourceAppId);
+    };
+    const searchYouTube = async () => {
+        const query = String(youtubeQuery || "").trim();
+        if (!query) {
+            setYoutubeError(tr("emptyYouTubeQuery"));
             return;
         }
-        setSelectedYouTubeResultId(resultId);
-        setYoutubeSearchError("");
-        if (controller.setYouTubeForCurrent(videoId)) {
-            setYoutubeInput(videoId);
+        setYoutubeBusy(true);
+        setYoutubeInlinePreview({ id: "", preview: null });
+        setYoutubeError("");
+        controller.setYouTubeQueryForApp(appId, query, gameTitle);
+        try {
+            const result = await searchYouTubeVideos(query, 10);
+            const entries = Array.isArray(result?.results) ? result.results : [];
+            setYoutubeResults(entries);
+            if (!entries.length) {
+                setYoutubeError(result?.error || tr("noReadableYouTubeResults"));
+            }
+        }
+        catch (error) {
+            setYoutubeError(error instanceof Error ? error.message : tr("youtubeSearchError"));
+        }
+        finally {
+            setYoutubeBusy(false);
         }
     };
-    return (SP_JSX.jsxs(DFL.PanelSection, { title: tr("title"), children: [
-        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("active"), checked: snapshot.settings.enabled, onChange: (checked) => controller.setEnabled(checked) }) }),
-        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("youtubeGlobal"), checked: snapshot.settings.youtubeEnabled, onChange: (checked) => controller.setYouTubeEnabled(checked) }) }),
-        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("youtubeAutoSearch"), checked: snapshot.settings.youtubeAutoSearch, disabled: !snapshot.settings.youtubeEnabled, onChange: (checked) => controller.setYouTubeAutoSearch(checked) }) }),
-        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", disabled: !snapshot.settings.youtubeEnabled || snapshot.bulkYouTubeInFlight, onClick: () => { void controller.reassignYouTubeForNonSteamGames(); }, children: snapshot.bulkYouTubeInFlight ? snapshot.status : tr("youtubeBulkReassign") }) }),
-        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("logoAssist"), checked: snapshot.settings.logoAssistEnabled, onChange: (checked) => controller.setLogoAssist(checked) }) }),
-        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx("div", { style: { fontSize: "11px", opacity: 0.62, lineHeight: 1.32 }, children: tr("logoAssistHelp") }) }),
-        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("stopOnLaunch"), checked: snapshot.settings.stopOnLaunchEnabled, onChange: (checked) => controller.setStopOnLaunch(checked) }) }),
-        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("crtAutomatic"), checked: snapshot.settings.crtLowResEnabled, onChange: (checked) => controller.setLowResCrt(checked) }) }),
-        snapshot.appId ? (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: tr("disabledForCurrentGame"), checked: currentBlocked, onChange: (checked) => controller.setCurrentAppBlocked(checked) }) })) : null,
-        SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx("div", { style: { fontSize: "12px", opacity: 0.82, lineHeight: 1.35 }, children: snapshot.status }) }),
-        snapshot.appId ? (SP_JSX.jsxs(SP_JSX.Fragment, { children: [
-            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => controller.cyclePreferredSource(), children: tr("source", { value: getSourceLabel(snapshot.preferredSource) }) }) }),
-            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => {
-                controller.cycleQuality();
-            }, children: tr("steamQuality", { quality: snapshot.settings.qualityHeight }) }) }),
-            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => {
-                controller.cycleCrtForCurrent();
-            }, children: tr("crtGame", { value: getCrtPreferenceLabel(currentCrtPreference) }) }) }),
-            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: tr("trimStart"), value: trimStartInput, mustBeURL: false, onChange: (event) => setTrimStartInput(event.currentTarget.value) }) }),
-            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: tr("trimEnd"), value: trimEndInput, mustBeURL: false, onChange: (event) => setTrimEndInput(event.currentTarget.value) }) }),
-            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: () => {
-                controller.setTrimForCurrent(trimStartInput, trimEndInput);
-            }, children: tr("saveTrims") }) }),
-            snapshot.steamMovies?.length ? (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.DropdownItem, { label: tr("steamTrailer"), rgOptions: snapshot.steamMovies.map((movie, index) => ({
-                data: movie.id,
-                label: `${index + 1}. ${movie.name}`
-            })), selectedOption: currentSteamMovie?.id ?? snapshot.selectedSteamMovieId ?? "", onChange: (option) => {
-                if (typeof option.data === "string") {
-                    controller.setSteamMovieForCurrent(option.data);
+    const toggleYouTubeInlinePreview = async (result, button) => {
+        const resultId = String(result?.videoId || result?.id || "");
+        if (!resultId) return;
+        if (youtubeInlinePreview.id === resultId) {
+            setYoutubeInlinePreview({ id: "", preview: null });
+            window.requestAnimationFrame(() => button?.focus?.());
+            return;
+        }
+        setYoutubeInlinePreview({ id: resultId, preview: { kind: "preparing", poster: result.thumbnail || `https://i.ytimg.com/vi/${resultId}/hqdefault.jpg`, title: result.title || resultId } });
+        try {
+            const prepared = await getYouTubeTrailerPreview(resultId, Math.min(1080, settings.qualityHeight));
+            if (!prepared?.ok) throw new Error(prepared?.error || tr("noPreview"));
+            if (prepared.ready && prepared.url) {
+                setYoutubeInlinePreview((current) => current.id === resultId ? { id: resultId, preview: { kind: "video", url: prepared.url, poster: prepared.thumbnail || result.thumbnail || "", title: result.title || resultId, source: "youtube" } } : current);
+                return;
+            }
+            for (let attempt = 0; attempt < 240; attempt += 1) {
+                await new Promise((resolve) => window.setTimeout(resolve, 700));
+                const status = await getSteamTrailerPreviewStatus(prepared.previewId).catch(() => null);
+                if (status?.ready && status.url) {
+                    setYoutubeInlinePreview((current) => current.id === resultId ? { id: resultId, preview: { kind: "video", url: status.url, poster: prepared.thumbnail || result.thumbnail || "", title: result.title || resultId, source: "youtube" } } : current);
+                    return;
                 }
-            } }) })) : null,
-            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: tr("youtubeForGame"), value: youtubeInput, mustBeURL: false, disabled: !snapshot.settings.youtubeEnabled, onChange: (event) => setYoutubeInput(event.currentTarget.value) }) }),
-            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", disabled: !snapshot.settings.youtubeEnabled, onClick: () => {
-                controller.setYouTubeForCurrent(youtubeInput);
-            }, children: tr("saveYouTubeLink") }) }),
-            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.TextField, { label: tr("youtubeSearchQuery"), value: youtubeQuery, mustBeURL: false, disabled: !snapshot.settings.youtubeEnabled || youtubeSearchBusy, onChange: (event) => setYoutubeQuery(event.currentTarget.value) }) }),
-            SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", disabled: !snapshot.settings.youtubeEnabled || youtubeSearchBusy, onClick: () => { void handleYouTubeSearch(); }, children: youtubeSearchBusy ? tr("searchingYouTube", { title: youtubeQuery || snapshot.gameTitle || "" }) : tr("searchYouTube") }) }),
-            youtubeSearchError ? SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx("div", { style: { fontSize: "11px", opacity: 0.72, lineHeight: 1.32, whiteSpace: "normal" }, children: youtubeSearchError }) }) : null,
-            youtubeResults.length ? SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.DropdownItem, { label: tr("youtubeResults"), rgOptions: youtubeResults.map((result, index) => ({
-                data: result.id || result.videoId,
-                label: formatYouTubeResultLabel(result, index)
-            })), selectedOption: selectedYouTubeResultId, onChange: (option) => {
-                if (typeof option.data === "string") {
-                    applySelectedYouTubeResult(option.data);
+                if (status?.ok === false) throw new Error(status.error || tr("noPreview"));
+            }
+            throw new Error(tr("noPreview"));
+        }
+        catch (error) {
+            setYoutubeInlinePreview((current) => current.id === resultId ? { id: "", preview: null } : current);
+            showTrailerHeroNotice(error instanceof Error ? error.message : String(error));
+        }
+    };
+    const downloadYouTubeResult = (result) => runAction("download", () => controller.startDownloadSelectionForApp(
+        appId, gameTitle, settings.qualityHeight, "youtube", String(result?.videoId || result?.id || ""), sourceAppId
+    ));
+    const sourceOptions = SOURCE_OPTIONS.filter((source) => source !== "local" || Boolean(localTrailer)).map((source) => ({ data: source, label: getSourceLabel(source) }));
+    const crtPreference = settings.crtOverrides[key] || "auto";
+    const jobTotal = Math.max(1, Number(snapshot.trailerJob?.total || 1));
+    const jobCurrent = Math.max(0, Number(snapshot.trailerJob?.current || 0));
+    const jobPercent = Math.max(0, Math.min(100, Math.round(jobCurrent / jobTotal * 100)));
+    const mediaJobPercent = Math.max(0, Math.min(100, Math.round(Number(snapshot.trailerJob?.progress || 0) * 100)));
+    const jobStageText = snapshot.trailerJob?.state === "queued" ? tr("preparingDownload")
+        : snapshot.trailerJob?.state === "running" && mediaJobPercent >= 99 ? tr("processingDownload")
+        : snapshot.trailerJob?.state === "running" ? tr("downloadingPercent", { percent: mediaJobPercent })
+        : snapshot.trailerJob?.state === "done" && localTrailer ? tr("savedLocal") : "";
+    if (!appId) {
+        return SP_JSX.jsx(DFL.ScrollPanel, { children: SP_JSX.jsx("div", { className: "thGamePage", children: tr("noGameForSettings") }) });
+    }
+    return SP_JSX.jsx(DFL.ScrollPanel, { children: SP_JSX.jsxs(DFL.Focusable, { ref: pageRef, "flow-children": "grid", noFocusRing: true, className: "thGamePage", onFocusCapture: scrollTrailerHeroFocus, children: [
+        SP_JSX.jsx("style", { children: trailerHeroPageStyles }),
+        SP_JSX.jsxs("header", { className: "thGameHeader", children: [
+            SP_JSX.jsx(DFL.DialogButton, { focusable: true, className: "DialogButton thIconButton", title: tr("back"), onClick: () => DFL.Navigation.NavigateBack(), style: { width: 42, minWidth: 42, height: 42, minHeight: 42, padding: 0, display: "grid", placeItems: "center" }, children: SP_JSX.jsx(FaArrowLeft, {}) }),
+            SP_JSX.jsxs("div", { style: { minWidth: 0 }, children: [
+                SP_JSX.jsx("div", { style: { fontSize: 13, opacity: 0.56, textTransform: "uppercase", fontWeight: 700 }, children: "TrailerHero" }),
+                SP_JSX.jsx("h1", { style: { margin: "4px 0 0", fontSize: 31, lineHeight: 1.08, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: gameTitle || `App ${appId}` })
+            ] })
+        ] }),
+        SP_JSX.jsxs(DFL.Focusable, { className: "thGrid", "flow-children": "vertical", noFocusRing: true, children: [
+            SP_JSX.jsxs(DFL.Focusable, { className: "thCard thActiveCard", "flow-children": "horizontal", noFocusRing: true, children: [
+                SP_JSX.jsxs(DFL.Focusable, { className: "thActivePreview", "flow-children": "vertical", noFocusRing: true, children: [
+                    SP_JSX.jsx("h2", { children: tr("trailerActive") }),
+                    SP_JSX.jsx("div", { className: "thCardDesc", children: preview?.title || gameTitle }),
+                    SP_JSX.jsx(TrailerPreview, { preview, audioMode: settings.defaultAudio }),
+                    localTrailer ? SP_JSX.jsx(DFL.DialogButton, { focusable: true, className: "thDeleteFile", disabled: Boolean(actionBusy) || activeJob, onClick: () => { void confirmTrailerHeroAction(tr("confirmDeleteLocal")).then((confirmed) => { if (confirmed) void runAction("delete", () => controller.deleteLocalForApp(appId), tr("localDeleted", { title: gameTitle })); }); }, children: tr("deleteFile") }) : null
+                ] }),
+                SP_JSX.jsxs(DFL.Focusable, { className: "thActiveSettings", "flow-children": "vertical", noFocusRing: true, children: [
+                    SP_JSX.jsx("h2", { children: tr("gameSettings") }),
+                    SP_JSX.jsx("div", { className: "thCardDesc", children: tr("gameSettingsHint") }),
+                    SP_JSX.jsx(DFL.ToggleField, { label: tr("disabledForCurrentGame"), bottomSeparator: "none", checked: blocked, onChange: (checked) => controller.setAppBlocked(appId, checked) }),
+                    SP_JSX.jsx(DFL.DropdownItem, { label: tr("source", { value: getSourceLabel(preferredSource) }), bottomSeparator: "none", rgOptions: sourceOptions, selectedOption: preferredSource, onChange: (option) => controller.setPreferredSourceForApp(appId, option.data) }),
+                    SP_JSX.jsx(DFL.DropdownItem, { label: tr("qualityPreset", { quality: settings.qualityHeight }), bottomSeparator: "none", rgOptions: QUALITY_OPTIONS.map((quality) => ({ data: quality, label: `${quality}p` })), selectedOption: settings.qualityHeight, onChange: (option) => controller.updateSettings({ qualityHeight: Number(option.data) }) }),
+                    catalogMovies.length ? SP_JSX.jsx(DFL.DropdownItem, { label: tr("steamTrailer"), bottomSeparator: "none", rgOptions: catalogMovies.map((movie, index) => ({ data: movie.id, label: `${index + 1}. ${movie.name}` })), selectedOption: selectedMovieId, onChange: (option) => controller.setSteamMovieForApp(appId, option.data) }) : null,
+                    SP_JSX.jsx(DFL.DropdownItem, { label: tr("crtGame", { value: getCrtPreferenceLabel(crtPreference) }), bottomSeparator: "none", rgOptions: CRT_OPTIONS.map((value) => ({ data: value, label: getCrtPreferenceLabel(value) })), selectedOption: crtPreference, onChange: (option) => { const crtOverrides = { ...settings.crtOverrides }; if (option.data === "auto") delete crtOverrides[key]; else crtOverrides[key] = option.data; controller.updateSettings({ crtOverrides }); } }),
+                    SP_JSX.jsx(DFL.TextField, { label: tr("trimStart"), value: trimStart, mustBeURL: false, onChange: (event) => setTrimStart(event.currentTarget.value) }),
+                    SP_JSX.jsx(DFL.TextField, { label: tr("trimEnd"), value: trimEnd, mustBeURL: false, onChange: (event) => setTrimEnd(event.currentTarget.value) }),
+                    SP_JSX.jsx(DFL.DialogButton, { focusable: true, onClick: () => { if (!controller.setTrimForApp(appId, trimStart, trimEnd)) showTrailerHeroNotice(tr("invalidTrims")); }, style: { width: "100%", marginTop: 9 }, children: tr("saveTrims") })
+                ] })
+            ] }),
+            SP_JSX.jsxs(DFL.Focusable, { className: "thCard", "flow-children": "vertical", noFocusRing: true, children: [
+                SP_JSX.jsx("h2", { children: tr("trailerSource") }),
+                SP_JSX.jsx("div", { className: "thCardDesc", children: tr("gameSettingsHint") }),
+                SP_JSX.jsxs(DFL.Focusable, { className: "thModeChoices", "flow-children": "horizontal", noFocusRing: true, children: [
+                    SP_JSX.jsxs(DFL.DialogButton, { focusable: true, "aria-pressed": trailerMode === "streaming", className: trailerMode === "streaming" ? "thModeSelected" : "", disabled: Boolean(actionBusy) || activeJob, onClick: () => controller.useStreamingForApp(appId), children: [SP_JSX.jsx("span", { className: "thModeIcon", children: SP_JSX.jsx(FaPlay, {}) }), SP_JSX.jsx("span", { children: tr("streaming") })] }),
+                    SP_JSX.jsxs(DFL.DialogButton, { focusable: true, "aria-pressed": trailerMode === "downloaded", className: trailerMode === "downloaded" ? "thModeSelected" : "", disabled: Boolean(actionBusy) || activeJob || (!localTrailer && preview?.kind === "missing"), onClick: () => localTrailer && localKind === "downloaded" ? controller.setPreferredSourceForApp(appId, "local") : void runAction("download", downloadTrailer), children: [SP_JSX.jsx("span", { className: "thModeIcon", children: SP_JSX.jsx(FaDownload, {}) }), SP_JSX.jsx("span", { children: tr("downloadActiveTrailer") })] }),
+                    SP_JSX.jsxs(DFL.DialogButton, { focusable: true, "aria-pressed": trailerMode === "imported", className: trailerMode === "imported" ? "thModeSelected" : "", disabled: Boolean(actionBusy) || activeJob, onClick: () => localTrailer && localKind === "imported" ? controller.setPreferredSourceForApp(appId, "local") : void runAction("import", importTrailer, tr("importAssigned", { title: gameTitle })), children: [SP_JSX.jsx("span", { className: "thModeIcon", children: SP_JSX.jsx(FaFolder, {}) }), SP_JSX.jsx("span", { children: tr("localFile") })] })
+                ] }),
+                activeJob ? SP_JSX.jsxs("div", { style: { marginTop: 12, fontSize: 12 }, children: [SP_JSX.jsx("div", { children: jobStageText }), SP_JSX.jsx("div", { className: "thProgress", children: SP_JSX.jsx("div", { style: { width: `${mediaJobPercent}%` } }) }), SP_JSX.jsx(DFL.DialogButton, { focusable: true, onClick: () => void controller.cancelCurrentTrailerJob(), style: { width: "100%", marginTop: 9 }, children: tr("cancelDownload") })] }) : jobStageText ? SP_JSX.jsx("div", { style: { marginTop: 12, fontSize: 12, color: "#b9efc4" }, children: jobStageText }) : null
+            ] }),
+            SP_JSX.jsxs(DFL.Focusable, { className: "thCard", "flow-children": "vertical", noFocusRing: true, children: [
+                SP_JSX.jsx("h2", { children: tr("youtubeTrailer") }),
+                SP_JSX.jsx("div", { className: "thCardDesc", children: tr("gameSettingsHint") }),
+                SP_JSX.jsxs(DFL.Focusable, { className: "thSearchRow", "flow-children": "horizontal", noFocusRing: true, children: [
+                    SP_JSX.jsx(DFL.TextField, { value: youtubeQuery, mustBeURL: false, disabled: youtubeBusy, onChange: (event) => setYoutubeQuery(event.currentTarget.value), style: { width: "100%", minWidth: 0 } }),
+                    SP_JSX.jsx(DFL.DialogButton, { focusable: true, "aria-busy": youtubeBusy, disabled: youtubeBusy || !settings.youtubeEnabled, onClick: () => void searchYouTube(), children: tr("search") })
+                ] }),
+                youtubeError ? SP_JSX.jsx("div", { style: { marginTop: 9, fontSize: 12, color: "#ffb6b6" }, children: youtubeError }) : null,
+                youtubeResults.length ? SP_JSX.jsx(DFL.Focusable, { "flow-children": "vertical", noFocusRing: true, style: { marginTop: 14 }, children: youtubeResults.map((result, index) => {
+                    const resultId = result.videoId || result.id;
+                    const thumbnails = Array.isArray(result.thumbnails) ? result.thumbnails : [];
+                    const thumbnail = result.thumbnail || thumbnails[thumbnails.length - 1]?.url || `https://i.ytimg.com/vi/${resultId}/hqdefault.jpg`;
+                    const selected = resultId === youtubeId;
+                    const inlineActive = youtubeInlinePreview.id === resultId;
+                    return SP_JSX.jsxs(DFL.Focusable, { "flow-children": "horizontal", "aria-pressed": selected, className: `thResult${selected ? " thResultSelected" : ""}`, children: [
+                        SP_JSX.jsx("img", { className: "thResultThumb", src: thumbnail, alt: result.title || "", loading: "lazy", decoding: "async", width: 144, height: 81, onError: (event) => { event.currentTarget.src = `https://i.ytimg.com/vi/${resultId}/mqdefault.jpg`; } }),
+                        SP_JSX.jsxs("div", { style: { minWidth: 0 }, children: [SP_JSX.jsx("div", { style: { fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: `${index + 1}. ${result.title || resultId}` }), SP_JSX.jsx("div", { style: { fontSize: 12, opacity: 0.58, marginTop: 3 }, children: [result.channel || result.uploader || "YouTube", result.length].filter(Boolean).join(" · ") })] }),
+                        SP_JSX.jsxs(DFL.DialogButton, { focusable: true, title: inlineActive ? tr("pause") : tr("play"), onClick: (event) => { event?.stopPropagation?.(); void toggleYouTubeInlinePreview(result, event?.currentTarget); }, children: [inlineActive ? SP_JSX.jsx(FaPause, {}) : SP_JSX.jsx(FaPlay, {}), SP_JSX.jsx("span", { children: inlineActive ? tr("pause") : tr("play") })] }),
+                        SP_JSX.jsx(DFL.DialogButton, { focusable: true, "aria-pressed": selected, className: selected ? "thResultActionSelected" : "", title: selected ? tr("selectedTrailer") : tr("selectTrailer"), onClick: (event) => { event?.stopPropagation?.(); controller.setYouTubeForApp(appId, resultId); }, children: selected ? tr("selectedTrailer") : tr("selectTrailer") }),
+                        SP_JSX.jsxs(DFL.DialogButton, { focusable: true, title: tr("downloadTrailer"), disabled: Boolean(actionBusy) || activeJob, onClick: (event) => { event?.stopPropagation?.(); void downloadYouTubeResult(result); }, children: [SP_JSX.jsx(FaDownload, {}), SP_JSX.jsx("span", { children: tr("download") })] }),
+                        inlineActive ? SP_JSX.jsx("div", { className: "thInlinePreview", children: SP_JSX.jsx(TrailerPreview, { preview: youtubeInlinePreview.preview, audioMode: "trailer" }) }) : null
+                    ] }, resultId);
+                }) }) : null
+            ] })
+        ] })
+    ] }) });
+}
+function GameSettingsRoute() {
+    const params = typeof DFL.useParams === "function" ? DFL.useParams() : {};
+    const appId = normalizeMenuAppId(params?.appid) || readTrailerHeroRouteAppId();
+    return SP_JSX.jsx(GameSettingsPage, { appId }, appId || "no-app");
+}
+function extractContextAppId(node, depth = 0, seen = new Set()) {
+    if (!node || depth > 5 || (typeof node === "object" && seen.has(node))) {
+        return 0;
+    }
+    if (typeof node === "object") {
+        seen.add(node);
+    }
+    const direct = normalizeMenuAppId(node);
+    if (direct) {
+        return direct;
+    }
+    for (const key of ["app", "overview", "game", "item", "target", "data", "props", "context", "selectedApp"]) {
+        const value = node?.[key];
+        if (value && value !== node) {
+            const nested = extractContextAppId(value, depth + 1, seen);
+            if (nested) {
+                return nested;
+            }
+        }
+    }
+    const children = node?.children ?? node?.props?.children;
+    for (const child of Array.isArray(children) ? children : children ? [children] : []) {
+        const nested = extractContextAppId(child, depth + 1, seen);
+        if (nested) {
+            return nested;
+        }
+    }
+    return 0;
+}
+function coerceContextMenuChildren(children) {
+    if (Array.isArray(children)) return children;
+    if (Array.isArray(children?.props?.children)) return children.props.children;
+    if (Array.isArray(children?.children)) return children.children;
+    return null;
+}
+function patchTrailerHeroMenuItems(menuItems, explicitAppId) {
+    const entries = coerceContextMenuChildren(menuItems);
+    if (!entries?.length) {
+        return undefined;
+    }
+    const appId = normalizeMenuAppId(explicitAppId) || extractContextAppId(entries);
+    if (!appId) {
+        return undefined;
+    }
+    const cleanEntries = entries.filter((item) => item?.key !== TRAILERHERO_MENU_KEY);
+    const propertiesIndex = cleanEntries.findIndex((item) => DFL.findInReactTree?.(item, (node) => {
+        const handler = node?.onSelected ?? node?.props?.onSelected ?? node?.onClick ?? node?.props?.onClick;
+        return typeof handler === "function" && /AppProperties|ShowAppProperties/.test(handler.toString());
+    }));
+    if (propertiesIndex < 0) {
+        return undefined;
+    }
+    const menuItem = SP_REACT.createElement(DFL.MenuItem, {
+        key: TRAILERHERO_MENU_KEY,
+        onSelected: () => DFL.Navigation?.Navigate?.(`/trailerhero/${appId}`)
+    }, "TrailerHero");
+    return {
+        appId,
+        items: [
+            ...cleanEntries.slice(0, propertiesIndex),
+            menuItem,
+            ...cleanEntries.slice(propertiesIndex)
+        ]
+    };
+}
+function patchRenderedMenu(node, explicitAppId) {
+    if (!SP_REACT.isValidElement?.(node)) {
+        return node;
+    }
+    const children = node.props?.children;
+    const firstChildItems = Array.isArray(children) && Array.isArray(children[0]) ? children[0] : undefined;
+    const patch = patchTrailerHeroMenuItems(firstChildItems ?? children, explicitAppId);
+    if (!patch) {
+        return node;
+    }
+    if (firstChildItems) {
+        return SP_REACT.cloneElement(node, undefined, [patch.items, ...children.slice(1)]);
+    }
+    return SP_REACT.cloneElement(node, undefined, patch.items);
+}
+function installTrailerHeroContextMenu() {
+    try {
+        const module = DFL.findModuleByExport?.((entry) => entry?.toString?.().includes("().LibraryContextMenu"));
+        const candidate = Object.values(module || {}).find((entry) => entry?.toString?.().includes("navigator:"));
+        const LibraryContextMenu = DFL.fakeRenderComponent?.(candidate)?.type ?? candidate;
+        if (!LibraryContextMenu?.prototype?.render || typeof DFL.afterPatch !== "function") {
+            return { unpatch: () => undefined };
+        }
+        const patchedPrototypes = new WeakSet();
+        const patches = [];
+        const patchPrototype = (prototype) => {
+            if (!prototype?.render || patchedPrototypes.has(prototype)) {
+                return;
+            }
+            patchedPrototypes.add(prototype);
+            const originalRender = prototype.render;
+            const wrappedRender = function (...args) {
+                const explicitAppId = extractContextAppId(this?.props) || extractContextAppId(args);
+                let rendered = originalRender.apply(this, args);
+                patchPrototype(rendered?.type?.prototype);
+                if (explicitAppId && rendered?.type?.prototype?.render && SP_REACT.isValidElement?.(rendered)) {
+                    rendered = SP_REACT.cloneElement(rendered, { trailerHeroAppId: explicitAppId });
                 }
-            } }) }) : null
-        ] })) : null
-    ] }));
+                return patchRenderedMenu(rendered, explicitAppId || extractContextAppId(rendered));
+            };
+            prototype.render = wrappedRender;
+            patches.push({
+                unpatch: () => {
+                    if (prototype.render === wrappedRender) {
+                        prototype.render = originalRender;
+                    }
+                }
+            });
+        };
+        patchPrototype(LibraryContextMenu.prototype);
+        return {
+            unpatch: () => patches.splice(0).reverse().forEach((patch) => {
+                try { patch?.unpatch?.(); }
+                catch { }
+            })
+        };
+    }
+    catch (error) {
+        console.warn("TrailerHero could not patch the game options menu", error);
+        return { unpatch: () => undefined };
+    }
 }
 var index = definePlugin(() => {
     controller.mount();
+    const contextMenuPatch = installTrailerHeroContextMenu();
+    try {
+        routerHook?.addRoute?.(TRAILERHERO_ROUTE, GameSettingsRoute, { exact: true });
+    }
+    catch (error) {
+        console.warn("TrailerHero could not register its game settings route", error);
+    }
     return {
         name: "TrailerHero",
-        titleView: SP_JSX.jsx("div", { className: DFL.staticClasses.Title, children: tr("title") }),
+        titleView: SP_JSX.jsxs("div", { className: DFL.staticClasses.Title, style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.45rem", width: "100%", marginLeft: "auto", paddingRight: 8 }, children: [SP_JSX.jsx(FaFilm, { size: 19 }), SP_JSX.jsx("span", { children: tr("title") })] }),
         content: SP_JSX.jsx(Content, {}),
         icon: SP_JSX.jsx(FaFilm, {}),
         onDismount() {
+            contextMenuPatch?.unpatch?.();
+            try {
+                routerHook?.removeRoute?.(TRAILERHERO_ROUTE);
+            }
+            catch (error) {
+                console.warn("TrailerHero could not remove its game settings route", error);
+            }
             controller.unmount();
         }
     };
 });
 
 export { index as default };
-//# sourceMappingURL=index.js.map

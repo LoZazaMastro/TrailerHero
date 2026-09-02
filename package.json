@@ -1,13 +1,12 @@
 {
   "name": "trailerhero",
-  "version": "1.3.0",
-  "description": "A Decky plugin that replaces Steam Big Picture hero art with quiet game trailers.",
+  "version": "1.5.0",
+  "description": "A Decky plugin that turns Steam Big Picture hero art into cinematic game trailers.",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "rollup -c",
-    "watch": "rollup -c -w",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "python scripts/package-release.py",
+    "test": "node --check dist/index.js && python -m py_compile main.py"
   },
   "keywords": [
     "decky",
@@ -16,7 +15,7 @@
     "trailer",
     "big-picture"
   ],
-  "author": "ZazaMastro",
+  "author": "LoZazaMastro",
   "license": "BSD-3-Clause",
   "devDependencies": {
     "@decky/rollup": "^1.0.2",

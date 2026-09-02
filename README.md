@@ -4,6 +4,8 @@ TrailerHero is a Decky Loader plugin that makes Steam Big Picture feel a little 
 
 When you open a game page, the plugin keeps the original Steam hero artwork in place for three seconds, then fades in a muted trailer inside the same hero area. It can use Steam trailers first, and YouTube automatically when Steam has nothing useful.
 
+Press the controller's physical **west face button** to switch from ThemeDeck music to trailer audio, and press it again to switch back. Steam's own live glyph in the footer follows the active controller layout (for example Square on PlayStation, X on Xbox/Steam, or Y on Nintendo).
+
 It also supports per-game Steam video choices, strict YouTube auto-search, intro/outro trimming, optional CRT styling for low-resolution videos, and a small logo assist for game pages that use tiny SteamGridDB logos.
 
 ## Languages
@@ -44,6 +46,20 @@ This plugin works by carefully reading and adapting Steam Big Picture UI element
 YouTube uses direct max-quality playback resolved with yt-dlp, then falls back to the embedded player if direct playback cannot be resolved or played.
 
 TrailerHero hides as much embedded-player chrome as possible during fallback, but YouTube can still briefly show its own internal overlay in some cases.
+
+## 1.5.0
+
+Added the full-screen per-game settings route with controller-confined four-direction focus, automatic scroll-follow-focus, and immediate Steam header/footer/search suppression with clean restoration on exit.
+
+Steam MPEG-DASH and HLS trailers are now materialized through the bundled current yt-dlp, Deno/EJS and ffmpeg toolchain. Preview files use a separate bounded temporary cache; saved assignments remain atomic and are replaced only after a successful download or import.
+
+YouTube downloads now pass the original watch URL to yt-dlp end-to-end instead of downloading expiring signed preview URLs. Steam, YouTube and local previews autoplay and loop automatically. The per-game trailer mode presents Streaming, Download/Local, and Import as controller-friendly actions with explicit saved-state and deletion feedback.
+
+## 1.4.0
+
+Trailer playback is now strictly tied to Steam's real game-detail route. Library Home remains trailer-free even while Steam keeps stale URLs in the visible Big Picture window or displays a full-width focused hero.
+
+Added the native **X** footer action for switching between ThemeDeck music and trailer audio. Steam DASH trailers now load their audio stream alongside the video, and TrailerHero publishes the existing Playhub playback signal so ThemeDeck pauses and resumes immediately without a ThemeDeck update.
 
 ## 1.2.5
 

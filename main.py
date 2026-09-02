@@ -1,18 +1,25 @@
 import asyncio
 import base64
 import difflib
+import hashlib
+import http.server
 import json
+import mimetypes
 import os
 import re
+import secrets
 import socket
 import shutil
 import subprocess
+import tempfile
+import threading
 import time
 import traceback
 import struct
 import unicodedata
 import urllib.request
 import urllib.parse
+import uuid
 from urllib.parse import urlparse
 from pathlib import Path
 
@@ -33,15 +40,1030 @@ class Plugin:
         )
         self._yt_dlp_name = "yt-dlp.exe" if IS_WINDOWS else "yt-dlp"
         self._yt_dlp_path = self._plugin_dir / self._yt_dlp_name
+        self._deno_path = self._plugin_dir / ("deno.exe" if IS_WINDOWS else "deno")
+        self._ffmpeg_name = "ffmpeg.exe" if IS_WINDOWS else "ffmpeg"
+        self._ffmpeg_path = self._plugin_dir / self._ffmpeg_name
+        settings_root = Path(
+            getattr(decky, "DECKY_PLUGIN_SETTINGS_DIR", self._plugin_dir / "data")
+        )
+        self._settings_dir = settings_root
+        self._trailers_dir = settings_root / "trailers"
+        self._trailer_library_file = settings_root / "trailer-library.json"
+        self._trailer_lock = threading.RLock()
+        self._jobs_lock = threading.RLock()
+        self._jobs = {}
+        self._job_cancels = {}
+        self._media_token = secrets.token_urlsafe(24)
+        self._media_server = None
+        self._media_thread = None
+        self._preview_dir = Path(tempfile.gettempdir()) / "TrailerHeroPreview"
+        self._preview_lock = threading.RLock()
+        self._preview_jobs = {}
 
     async def _main(self):
+        self._settings_dir.mkdir(parents=True, exist_ok=True)
+        self._trailers_dir.mkdir(parents=True, exist_ok=True)
+        self._preview_dir.mkdir(parents=True, exist_ok=True)
+        self._cleanup_preview_cache()
+        self._start_media_server()
         decky.logger.info("TrailerHero loaded")
 
     async def _unload(self):
+        with self._jobs_lock:
+            for cancel_event in self._job_cancels.values():
+                cancel_event.set()
+        server = self._media_server
+        self._media_server = None
+        if server:
+            try:
+                server.shutdown()
+                server.server_close()
+            except Exception:
+                decky.logger.exception("TrailerHero media server shutdown failed")
         decky.logger.info("TrailerHero unloaded")
 
-    async def get_steam_trailer(self, appid: int) -> dict:
-        return await asyncio.to_thread(self._get_steam_trailer_sync, int(appid))
+    async def get_steam_trailer_preview_status(self, preview_id: str) -> dict:
+        return await asyncio.to_thread(self._get_steam_trailer_preview_status_sync, str(preview_id or ""))
+
+    async def get_local_trailer(self, appid: int = 0) -> dict:
+        return await asyncio.to_thread(self._get_local_trailer_sync, int(appid or 0))
+
+    async def get_steam_trailer_preview(
+        self,
+        appid: int,
+        movie_id: str = "",
+        quality: int = 2160
+    ) -> dict:
+        return await asyncio.to_thread(
+            self._get_steam_trailer_preview_sync,
+            int(appid),
+            str(movie_id or ""),
+            int(quality or 2160)
+        )
+
+    async def import_local_trailer(self, appid: int, path: str, title: str = "") -> dict:
+        return await asyncio.to_thread(
+            self._import_local_trailer_sync,
+            int(appid),
+            str(path),
+            str(title or "")
+        )
+
+    async def start_trailer_download(
+        self,
+        appid: int,
+        source: str,
+        value: str,
+        quality: int = 1080,
+        title: str = "",
+        source_appid: int = 0
+    ) -> dict:
+        clean_appid = self._validate_appid(appid)
+        clean_source = str(source or "").strip().lower()
+        if clean_source not in {"steam", "youtube"}:
+            raise ValueError("Unsupported trailer source")
+        safe_quality = self._validate_quality(quality)
+        job_id = self._create_job("download", 1)
+        cancel_event = self._job_cancels[job_id]
+
+        def worker():
+            result = self._download_assignment_sync(
+                clean_appid,
+                clean_source,
+                str(value or ""),
+                safe_quality,
+                str(title or ""),
+                int(source_appid or 0),
+                cancel_event,
+                job_id
+            )
+            self._finish_job(job_id, result)
+
+        self._launch_job(job_id, worker)
+        return {"ok": True, "jobId": job_id}
+
+    async def start_bulk_download(self, items: list, quality: int = 1080) -> dict:
+        safe_quality = self._validate_quality(quality)
+        clean_items = []
+        for raw in list(items or [])[:5000]:
+            if not isinstance(raw, dict):
+                continue
+            try:
+                appid = self._validate_appid(raw.get("appid") or raw.get("appId"))
+            except (TypeError, ValueError):
+                continue
+            clean_items.append({
+                "appid": appid,
+                "title": str(raw.get("title") or "").strip(),
+                "source": str(raw.get("source") or "auto").strip().lower(),
+                "value": str(raw.get("value") or "").strip(),
+                "sourceAppId": int(raw.get("sourceAppId") or 0),
+            })
+        if not clean_items:
+            return {"ok": False, "error": "No games available for bulk download"}
+        job_id = self._create_job("bulk-download", len(clean_items))
+        cancel_event = self._job_cancels[job_id]
+
+        def worker():
+            downloaded = 0
+            failed = 0
+            skipped = 0
+            errors = []
+            for index, item in enumerate(clean_items):
+                if cancel_event.is_set():
+                    self._cancelled_job(job_id, downloaded, failed, skipped)
+                    return
+                self._update_job(
+                    job_id,
+                    current=index,
+                    currentTitle=item["title"],
+                    message=f'{index + 1}/{len(clean_items)} · {item["title"]}'
+                )
+                try:
+                    source, value, source_appid = self._resolve_bulk_source(item)
+                    if not source or not value:
+                        skipped += 1
+                    else:
+                        self._download_assignment_sync(
+                            item["appid"], source, value, safe_quality,
+                            item["title"], source_appid, cancel_event, None
+                        )
+                        downloaded += 1
+                except InterruptedError:
+                    self._cancelled_job(job_id, downloaded, failed, skipped)
+                    return
+                except Exception as error:
+                    failed += 1
+                    if len(errors) < 12:
+                        errors.append({"appid": item["appid"], "title": item["title"], "error": str(error)})
+                self._update_job(
+                    job_id,
+                    current=index + 1,
+                    downloaded=downloaded,
+                    failed=failed,
+                    skipped=skipped
+                )
+            self._finish_job(job_id, {
+                "ok": True,
+                "downloaded": downloaded,
+                "failed": failed,
+                "skipped": skipped,
+                "errors": errors
+            })
+
+        self._launch_job(job_id, worker)
+        return {"ok": True, "jobId": job_id, "total": len(clean_items)}
+
+    async def get_trailer_job(self, job_id: str) -> dict:
+        with self._jobs_lock:
+            job = self._jobs.get(str(job_id))
+            return dict(job) if job else {"ok": False, "error": "Job not found"}
+
+    async def cancel_trailer_job(self, job_id: str) -> dict:
+        with self._jobs_lock:
+            cancel_event = self._job_cancels.get(str(job_id))
+            if not cancel_event:
+                return {"ok": False, "error": "Job not found"}
+            cancel_event.set()
+            return {"ok": True, "jobId": str(job_id)}
+
+    async def delete_local_trailer(self, appid: int) -> dict:
+        return await asyncio.to_thread(self._delete_local_trailer_sync, int(appid))
+
+    async def delete_all_local_trailers(self) -> dict:
+        return await asyncio.to_thread(self._delete_all_local_trailers_sync)
+
+    async def cleanup_unassigned_trailers(self) -> dict:
+        return await asyncio.to_thread(self._cleanup_unassigned_trailers_sync)
+
+    def _start_media_server(self):
+        if self._media_server:
+            return
+        plugin = self
+
+        class MediaHandler(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def do_HEAD(self):
+                self._serve(False)
+
+            def do_GET(self):
+                self._serve(True)
+
+            def _serve(self, include_body: bool):
+                parsed = urllib.parse.urlparse(self.path)
+                parts = [part for part in parsed.path.split("/") if part]
+                if len(parts) != 4 or parts[0] != plugin._media_token or parts[1] not in {"media", "preview"}:
+                    self.send_error(404)
+                    return
+                try:
+                    if parts[1] == "media":
+                        appid = plugin._validate_appid(parts[2])
+                        path = plugin._media_path_for(appid, parts[3])
+                    else:
+                        path = plugin._preview_media_path(parts[2], parts[3])
+                except (TypeError, ValueError, FileNotFoundError):
+                    self.send_error(404)
+                    return
+                size = path.stat().st_size
+                start = 0
+                end = size - 1
+                range_header = self.headers.get("Range", "")
+                if range_header:
+                    match = re.match(r"bytes=(\d*)-(\d*)", range_header)
+                    if not match:
+                        self.send_error(416)
+                        return
+                    if match.group(1):
+                        start = min(int(match.group(1)), max(0, size - 1))
+                    if match.group(2):
+                        end = min(int(match.group(2)), size - 1)
+                    if start > end:
+                        self.send_error(416)
+                        return
+                length = max(0, end - start + 1)
+                self.send_response(206 if range_header else 200)
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Content-Type", mimetypes.guess_type(path.name)[0] or "application/octet-stream")
+                self.send_header("Content-Length", str(length))
+                if range_header:
+                    self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+                self.end_headers()
+                if not include_body:
+                    return
+                try:
+                    with path.open("rb") as stream:
+                        stream.seek(start)
+                        remaining = length
+                        while remaining > 0:
+                            chunk = stream.read(min(1024 * 1024, remaining))
+                            if not chunk:
+                                break
+                            self.wfile.write(chunk)
+                            remaining -= len(chunk)
+                except (BrokenPipeError, ConnectionResetError):
+                    return
+
+            def log_message(self, _format, *_args):
+                return
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), MediaHandler)
+        server.daemon_threads = True
+        self._media_server = server
+        self._media_thread = threading.Thread(
+            target=server.serve_forever,
+            name="TrailerHeroMedia",
+            daemon=True
+        )
+        self._media_thread.start()
+
+    def _validate_appid(self, value) -> int:
+        appid = int(value)
+        if appid <= 0 or appid > 0xFFFFFFFF:
+            raise ValueError("Invalid app id")
+        return appid
+
+    def _validate_quality(self, value) -> int:
+        quality = int(value or 1080)
+        if quality not in {720, 1080, 1440, 2160}:
+            raise ValueError("Unsupported quality preset")
+        return quality
+
+    def _safe_media_path(self, relative_path: str) -> Path:
+        root = self._trailers_dir.resolve()
+        candidate = (root / str(relative_path or "")).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError as error:
+            raise ValueError("Invalid trailer path") from error
+        return candidate
+
+    def _preview_media_path(self, preview_id: str, filename: str = "preview.mp4") -> Path:
+        if not re.fullmatch(r"[a-f0-9]{24}", str(preview_id or "")):
+            raise ValueError("Invalid preview id")
+        if filename != "preview.mp4":
+            raise ValueError("Invalid preview filename")
+        root = self._preview_dir.resolve()
+        candidate = (root / preview_id / filename).resolve()
+        candidate.relative_to(root)
+        if not candidate.is_file():
+            raise FileNotFoundError(candidate)
+        return candidate
+
+    def _preview_url(self, preview_id: str) -> str:
+        server = self._media_server
+        if not server:
+            return ""
+        return f"http://127.0.0.1:{server.server_port}/{self._media_token}/preview/{preview_id}/preview.mp4"
+
+    def _cleanup_preview_cache(self, max_entries: int = 6, max_age: int = 6 * 60 * 60):
+        try:
+            self._preview_dir.mkdir(parents=True, exist_ok=True)
+            entries = sorted(
+                (path for path in self._preview_dir.iterdir() if path.is_dir()),
+                key=lambda path: path.stat().st_mtime,
+                reverse=True
+            )
+            now = time.time()
+            for index, path in enumerate(entries):
+                try:
+                    if index >= max_entries or now - path.stat().st_mtime > max_age:
+                        shutil.rmtree(path, ignore_errors=True)
+                except OSError:
+                    pass
+        except OSError:
+            pass
+
+    def _adaptive_preview_id(self, appid: int, movie_id: str, quality: int, url: str) -> str:
+        raw = f"{appid}:{movie_id}:{quality}:{url}".encode("utf-8")
+        return hashlib.sha256(raw).hexdigest()[:24]
+
+    def _get_steam_trailer_preview_status_sync(self, preview_id: str) -> dict:
+        clean_id = str(preview_id or "")
+        try:
+            path = self._preview_media_path(clean_id)
+            return {"ok": True, "ready": True, "pending": False, "previewId": clean_id,
+                    "url": self._preview_url(clean_id), "bytes": path.stat().st_size}
+        except (ValueError, FileNotFoundError):
+            pass
+        with self._preview_lock:
+            job = dict(self._preview_jobs.get(clean_id) or {})
+        if job.get("error"):
+            return {"ok": False, "ready": False, "pending": False, "previewId": clean_id,
+                    "error": str(job["error"])}
+        return {"ok": True, "ready": False, "pending": bool(job), "previewId": clean_id}
+
+    def _start_adaptive_preview(self, preview_id: str, url: str, quality: int):
+        target_dir = self._preview_dir / preview_id
+        final_path = target_dir / "preview.mp4"
+        if final_path.is_file():
+            return
+        with self._preview_lock:
+            if preview_id in self._preview_jobs:
+                return
+            self._preview_jobs[preview_id] = {"state": "running", "createdAt": time.time()}
+
+        def worker():
+            staging = target_dir / "preview.part.mp4"
+            try:
+                target_dir.mkdir(parents=True, exist_ok=True)
+                self._download_adaptive_stream(url, staging, quality)
+                os.replace(staging, final_path)
+                os.utime(target_dir, None)
+                with self._preview_lock:
+                    self._preview_jobs.pop(preview_id, None)
+                self._cleanup_preview_cache()
+            except Exception as error:
+                try:
+                    staging.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                with self._preview_lock:
+                    self._preview_jobs[preview_id] = {"state": "failed", "error": str(error), "createdAt": time.time()}
+                decky.logger.exception("TrailerHero adaptive preview failed")
+
+        threading.Thread(target=worker, name=f"TrailerHeroPreview-{preview_id[:6]}", daemon=True).start()
+
+    def _load_trailer_library(self) -> dict:
+        with self._trailer_lock:
+            try:
+                payload = json.loads(self._trailer_library_file.read_text(encoding="utf-8"))
+            except (FileNotFoundError, json.JSONDecodeError, OSError):
+                payload = {}
+            assignments = payload.get("assignments") if isinstance(payload, dict) else None
+            return {
+                "version": 1,
+                "assignments": assignments if isinstance(assignments, dict) else {}
+            }
+
+    def _save_trailer_library(self, library: dict):
+        self._settings_dir.mkdir(parents=True, exist_ok=True)
+        fd, temp_name = tempfile.mkstemp(
+            prefix="trailer-library-",
+            suffix=".tmp",
+            dir=str(self._settings_dir)
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
+                json.dump(library, stream, ensure_ascii=False, indent=2, sort_keys=True)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temp_name, self._trailer_library_file)
+        finally:
+            try:
+                if os.path.exists(temp_name):
+                    os.unlink(temp_name)
+            except OSError:
+                pass
+
+    def _public_assignment(self, assignment: dict) -> dict:
+        result = dict(assignment)
+        appid = self._validate_appid(result.get("appid"))
+        port = self._media_server.server_address[1] if self._media_server else 0
+        base = f"http://127.0.0.1:{port}/{self._media_token}/media/{appid}"
+        video_path = self._safe_media_path(result.get("video") or "")
+        if not video_path.is_file():
+            raise FileNotFoundError(video_path)
+        result["videoUrl"] = f"{base}/video?v={int(video_path.stat().st_mtime_ns)}"
+        result["videoBytes"] = video_path.stat().st_size
+        audio_relative = result.get("audio")
+        if audio_relative:
+            audio_path = self._safe_media_path(audio_relative)
+            if audio_path.is_file():
+                result["audioUrl"] = f"{base}/audio?v={int(audio_path.stat().st_mtime_ns)}"
+                result["audioBytes"] = audio_path.stat().st_size
+        result["mode"] = "local"
+        return result
+
+    def _get_local_trailer_sync(self, appid: int = 0) -> dict:
+        library = self._load_trailer_library()
+        assignments = library["assignments"]
+        if appid:
+            key = str(self._validate_appid(appid))
+            assignment = assignments.get(key)
+            if not isinstance(assignment, dict):
+                return {"ok": True, "appid": int(appid), "mode": "streaming", "assigned": False}
+            try:
+                return {"ok": True, "assigned": True, **self._public_assignment(assignment)}
+            except (FileNotFoundError, ValueError):
+                return {"ok": True, "appid": int(appid), "mode": "streaming", "assigned": False, "stale": True}
+        entries = []
+        stale = 0
+        for assignment in assignments.values():
+            if not isinstance(assignment, dict):
+                continue
+            try:
+                entries.append(self._public_assignment(assignment))
+            except (FileNotFoundError, ValueError):
+                stale += 1
+        entries.sort(key=lambda item: str(item.get("title") or item.get("appid")))
+        return {"ok": True, "entries": entries, "count": len(entries), "stale": stale}
+
+    def _media_path_for(self, appid: int, kind: str) -> Path:
+        library = self._load_trailer_library()
+        assignment = library["assignments"].get(str(appid))
+        if not isinstance(assignment, dict):
+            raise FileNotFoundError(appid)
+        field = "video" if kind == "video" else "audio" if kind == "audio" else ""
+        if not field or not assignment.get(field):
+            raise FileNotFoundError(kind)
+        path = self._safe_media_path(assignment[field])
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        return path
+
+    def _validate_video_file(self, path: Path):
+        if not path.is_file() or path.stat().st_size < 1024:
+            raise ValueError("Selected video is empty or unreadable")
+        extension = path.suffix.lower()
+        if extension not in {".mp4", ".m4v", ".mov", ".webm", ".mkv"}:
+            raise ValueError("Supported formats: MP4, M4V, MOV, WebM and MKV")
+        with path.open("rb") as stream:
+            header = stream.read(16)
+        is_iso_media = len(header) >= 12 and header[4:8] == b"ftyp"
+        is_ebml = header.startswith(b"\x1aE\xdf\xa3")
+        if extension in {".mp4", ".m4v", ".mov"} and not is_iso_media:
+            raise ValueError("The selected file is not a valid MP4/MOV video")
+        if extension in {".webm", ".mkv"} and not is_ebml:
+            raise ValueError("The selected file is not a valid WebM/MKV video")
+
+    def _hash_file(self, path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _commit_assignment(
+        self,
+        appid: int,
+        video_path: Path,
+        audio_path: Path | None,
+        source: str,
+        source_id: str,
+        title: str,
+        requested_quality: int | None = None,
+        actual_height: int | None = None
+    ) -> dict:
+        clean_appid = self._validate_appid(appid)
+        self._validate_video_file(video_path)
+        assignment_id = uuid.uuid4().hex
+        app_dir = self._trailers_dir / str(clean_appid)
+        final_video = app_dir / f"{assignment_id}{video_path.suffix.lower()}"
+        final_audio = app_dir / f"{assignment_id}-audio{audio_path.suffix.lower()}" if audio_path else None
+        with self._trailer_lock:
+            app_dir.mkdir(parents=True, exist_ok=True)
+            os.replace(video_path, final_video)
+            if audio_path:
+                os.replace(audio_path, final_audio)
+            assignment = {
+                "appid": clean_appid,
+                "title": title.strip() or f"App {clean_appid}",
+                "source": source,
+                "sourceId": source_id,
+                "video": final_video.relative_to(self._trailers_dir).as_posix(),
+                "audio": final_audio.relative_to(self._trailers_dir).as_posix() if final_audio else "",
+                "requestedHeight": requested_quality or 0,
+                "actualHeight": actual_height or 0,
+                "sha256": self._hash_file(final_video),
+                "createdAt": int(time.time())
+            }
+            library = self._load_trailer_library()
+            old_assignment = library["assignments"].get(str(clean_appid))
+            library["assignments"][str(clean_appid)] = assignment
+            self._save_trailer_library(library)
+            result = {"ok": True, "assigned": True, **self._public_assignment(assignment)}
+            self._delete_assignment_files(old_assignment, keep={final_video, final_audio})
+            return result
+
+    def _delete_assignment_files(self, assignment, keep=None):
+        if not isinstance(assignment, dict):
+            return
+        keep_paths = {path.resolve() for path in (keep or set()) if path}
+        for field in ("video", "audio"):
+            relative = assignment.get(field)
+            if not relative:
+                continue
+            try:
+                path = self._safe_media_path(relative)
+                if path.resolve() not in keep_paths:
+                    path.unlink(missing_ok=True)
+            except (OSError, ValueError):
+                decky.logger.warning("TrailerHero could not remove replaced media")
+
+    def _import_local_trailer_sync(self, appid: int, raw_path: str, title: str) -> dict:
+        clean_appid = self._validate_appid(appid)
+        source_path = Path(raw_path).expanduser().resolve()
+        self._validate_video_file(source_path)
+        staging = Path(tempfile.mkdtemp(prefix="import-", dir=str(self._trailers_dir)))
+        try:
+            staged_video = staging / f"video{source_path.suffix.lower()}"
+            shutil.copy2(source_path, staged_video)
+            return self._commit_assignment(
+                clean_appid,
+                staged_video,
+                None,
+                "import",
+                str(source_path.name),
+                title
+            )
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+
+    def _create_job(self, kind: str, total: int) -> str:
+        job_id = uuid.uuid4().hex
+        with self._jobs_lock:
+            self._jobs[job_id] = {
+                "ok": True,
+                "jobId": job_id,
+                "kind": kind,
+                "state": "queued",
+                "current": 0,
+                "total": total,
+                "createdAt": int(time.time())
+            }
+            self._job_cancels[job_id] = threading.Event()
+            if len(self._jobs) > 80:
+                finished = [key for key, value in self._jobs.items() if value.get("state") in {"done", "failed", "cancelled"}]
+                for old_id in finished[:-40]:
+                    self._jobs.pop(old_id, None)
+                    self._job_cancels.pop(old_id, None)
+        return job_id
+
+    def _launch_job(self, job_id: str, worker):
+        def run():
+            self._update_job(job_id, state="running", startedAt=int(time.time()))
+            try:
+                worker()
+            except InterruptedError:
+                self._update_job(job_id, state="cancelled", finishedAt=int(time.time()))
+            except Exception as error:
+                decky.logger.exception("TrailerHero job failed")
+                self._update_job(
+                    job_id,
+                    state="failed",
+                    error=str(error),
+                    finishedAt=int(time.time())
+                )
+        threading.Thread(target=run, name=f"TrailerHeroJob-{job_id[:8]}", daemon=True).start()
+
+    def _update_job(self, job_id: str, **changes):
+        with self._jobs_lock:
+            if job_id in self._jobs:
+                self._jobs[job_id].update(changes)
+
+    def _finish_job(self, job_id: str, result: dict):
+        self._update_job(
+            job_id,
+            state="done" if result.get("ok") else "failed",
+            result=result,
+            current=self._jobs.get(job_id, {}).get("total", 1),
+            finishedAt=int(time.time())
+        )
+
+    def _cancelled_job(self, job_id: str, downloaded: int, failed: int, skipped: int):
+        self._update_job(
+            job_id,
+            state="cancelled",
+            downloaded=downloaded,
+            failed=failed,
+            skipped=skipped,
+            finishedAt=int(time.time())
+        )
+
+    def _download_url(self, url: str, destination: Path, cancel_event: threading.Event, progress=None):
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 TrailerHero/1.5", "Accept": "*/*"}
+        )
+        with urllib.request.urlopen(request, timeout=30) as response, destination.open("wb") as output:
+            total = int(response.headers.get("Content-Length") or 0)
+            if total > 20 * 1024 * 1024 * 1024:
+                raise ValueError("Trailer exceeds the 20 GB safety limit")
+            if total:
+                free = shutil.disk_usage(destination.parent).free
+                if total + 512 * 1024 * 1024 > free:
+                    raise OSError("Not enough free space to save this trailer")
+            written = 0
+            while True:
+                if cancel_event.is_set():
+                    raise InterruptedError("Download cancelled")
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                output.write(chunk)
+                written += len(chunk)
+                if written > 20 * 1024 * 1024 * 1024:
+                    raise ValueError("Trailer exceeds the 20 GB safety limit")
+                if progress and total:
+                    progress(min(0.99, written / total))
+            output.flush()
+            os.fsync(output.fileno())
+
+    def _url_extension(self, url: str, fallback: str = ".mp4") -> str:
+        suffix = Path(urllib.parse.urlparse(url).path).suffix.lower()
+        return suffix if suffix in {".mp4", ".m4v", ".mov", ".webm", ".mkv", ".m4a", ".aac", ".ogg", ".opus"} else fallback
+
+    def _download_adaptive_stream(
+        self,
+        url: str,
+        destination: Path,
+        quality: int,
+        cancel_event: threading.Event | None = None,
+        job_id: str | None = None
+    ):
+        if not self._yt_dlp_path.is_file():
+            raise RuntimeError("Bundled yt-dlp is missing")
+        if not self._ffmpeg_path.is_file():
+            raise RuntimeError("Bundled ffmpeg is missing")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        base_command = [
+            str(self._yt_dlp_path),
+            "--no-playlist", "--no-part", "--newline", "--no-cookies",
+            "--force-ipv4", "--retries", "3", "--fragment-retries", "3", "--extractor-retries", "3",
+            "--ffmpeg-location", str(self._ffmpeg_path.parent),
+            "-f", f"bv*[height<={quality}]+ba/b[height<={quality}]/b",
+            "--merge-output-format", "mp4",
+            "--remux-video", "mp4",
+            "-o", str(destination),
+        ]
+        if self._deno_path.is_file():
+            base_command.extend(["--js-runtimes", f"deno:{self._deno_path}", "--remote-components", "ejs:npm"])
+        is_youtube = "youtube.com/" in url or "youtu.be/" in url
+        attempts = [base_command + [url]]
+        if is_youtube:
+            attempts.append(base_command + [
+                "--extractor-args", "youtube:player_client=web_safari,tv_simply,android_vr",
+                url,
+            ])
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if IS_WINDOWS else 0
+        last_tail = []
+        for attempt_index, command in enumerate(attempts):
+            destination.unlink(missing_ok=True)
+            decky.logger.info(f"TrailerHero yt-dlp materialization attempt {attempt_index + 1}/{len(attempts)}")
+            process = subprocess.Popen(
+                command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                encoding="utf-8", errors="replace", creationflags=creationflags
+            )
+            tail = []
+            try:
+                assert process.stdout is not None
+                while True:
+                    if cancel_event and cancel_event.is_set():
+                        process.terminate()
+                        raise InterruptedError("Download cancelled")
+                    line = process.stdout.readline()
+                    if line:
+                        tail.append(line.strip())
+                        tail = tail[-30:]
+                        match = re.search(r"\[download\]\s+([0-9.]+)%", line)
+                        if match and job_id:
+                            self._update_job(job_id, progress=min(0.99, float(match.group(1)) / 100.0))
+                    elif process.poll() is not None:
+                        break
+                    else:
+                        time.sleep(0.05)
+                if process.returncode == 0 and destination.is_file() and destination.stat().st_size >= 1024:
+                    return
+                last_tail = tail
+                decky.logger.warning("TrailerHero yt-dlp attempt failed; refreshing extraction with alternate anonymous clients")
+            finally:
+                if process.poll() is None:
+                    process.kill()
+        diagnostic = " | ".join(last_tail[-6:])
+        if is_youtube:
+            raise RuntimeError("YouTube download blocked after extractor/EJS refresh (possible PO-token enforcement): " + diagnostic)
+        raise RuntimeError("yt-dlp/ffmpeg failed: " + diagnostic)
+
+    def _download_assignment_sync(
+        self,
+        appid: int,
+        source: str,
+        value: str,
+        quality: int,
+        title: str,
+        source_appid: int,
+        cancel_event: threading.Event,
+        job_id: str | None
+    ) -> dict:
+        staging = Path(tempfile.mkdtemp(prefix="download-", dir=str(self._trailers_dir)))
+        try:
+            video_url = ""
+            audio_url = ""
+            video_extension = ".mp4"
+            audio_extension = ".m4a"
+            actual_height = 0
+            source_id = value
+            if source == "youtube":
+                video_id = self._extract_youtube_id(value)
+                if not video_id:
+                    raise ValueError("Invalid YouTube trailer")
+                video_url = f"https://www.youtube.com/watch?v={video_id}"
+                video_extension = ".mp4"
+                actual_height = quality
+                source_id = video_id
+                title = title or "YouTube trailer"
+            else:
+                steam_appid = self._validate_appid(source_appid or appid)
+                steam = self._resolve_steam_download(steam_appid, value, quality)
+                video_url = steam["url"]
+                actual_height = steam["height"]
+                video_extension = self._url_extension(video_url, ".mp4")
+                source_id = steam["movieId"]
+                title = title or steam["name"]
+            if cancel_event.is_set():
+                raise InterruptedError("Download cancelled")
+            if video_extension not in {".mp4", ".m4v", ".mov", ".webm", ".mkv"}:
+                video_extension = self._url_extension(video_url, ".mp4")
+            video_path = staging / f"video{video_extension}"
+            if source == "youtube" or (source == "steam" and steam.get("adaptive")):
+                video_path = staging / "video.mp4"
+                self._download_adaptive_stream(video_url, video_path, quality, cancel_event, job_id)
+            else:
+                self._download_url(
+                    video_url,
+                    video_path,
+                    cancel_event,
+                    (lambda ratio: self._update_job(job_id, progress=ratio)) if job_id else None
+                )
+            audio_path = None
+            if audio_url:
+                if audio_extension not in {".m4a", ".mp4", ".aac", ".webm", ".ogg", ".opus"}:
+                    audio_extension = self._url_extension(audio_url, ".m4a")
+                audio_path = staging / f"audio{audio_extension}"
+                self._download_url(audio_url, audio_path, cancel_event)
+            return self._commit_assignment(
+                appid,
+                video_path,
+                audio_path,
+                source,
+                source_id,
+                title,
+                quality,
+                actual_height
+            )
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+
+    def _resolve_steam_download(self, appid: int, movie_id: str, quality: int) -> dict:
+        payload = self._fetch_appdetails(appid)
+        movies = payload.get(str(appid), {}).get("data", {}).get("movies") or []
+        selected = next((movie for movie in movies if str(movie.get("id")) == str(movie_id)), None)
+        selected = selected or self._pick_movie(movies) if movies else None
+        if not selected:
+            raise RuntimeError("No Steam trailer available")
+        candidates = []
+        for group_name in ("mp4", "webm"):
+            group = selected.get(group_name)
+            if not isinstance(group, dict):
+                continue
+            for label, url in group.items():
+                if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+                    continue
+                match = re.search(r"(2160|1440|1080|720|480)", str(label)) or re.search(r"(2160|1440|1080|720|480)", url)
+                height = int(match.group(1)) if match else quality
+                candidates.append({"url": url, "height": height, "group": group_name})
+        if not candidates:
+            for field in ("hls_h264", "dash_h264", "dash_av1"):
+                url = selected.get(field)
+                if isinstance(url, str) and url.startswith(("http://", "https://")):
+                    return {
+                        "url": url,
+                        "height": quality,
+                        "movieId": str(selected.get("id") or ""),
+                        "name": str(selected.get("name") or "Steam trailer"),
+                        "adaptive": True,
+                        "format": "hls" if field.startswith("hls") else "dash"
+                    }
+            raise RuntimeError("Steam trailer has no downloadable file or adaptive manifest")
+        candidates.sort(key=lambda item: (
+            item["height"] > quality,
+            abs(quality - item["height"]),
+            -item["height"],
+            item["group"] != "mp4"
+        ))
+        selected_file = candidates[0]
+        return {
+            "url": selected_file["url"],
+            "height": selected_file["height"],
+            "movieId": str(selected.get("id") or ""),
+            "name": str(selected.get("name") or "Steam trailer"),
+            "adaptive": False
+        }
+
+    def _resolve_steam_preview(self, appid: int, movie_id: str, quality: int) -> dict:
+        payload = self._fetch_appdetails(appid)
+        movies = payload.get(str(appid), {}).get("data", {}).get("movies") or []
+        requested_id = str(movie_id or "")
+        selected = next(
+            (movie for movie in movies if str(movie.get("id") or "") == requested_id),
+            None
+        )
+        selected = selected or (self._pick_movie(movies) if movies else None)
+        if not selected:
+            raise RuntimeError("No Steam trailer available")
+
+        candidates = []
+        for group_name in ("mp4", "webm"):
+            group = selected.get(group_name)
+            if not isinstance(group, dict):
+                continue
+            for label, url in group.items():
+                if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+                    continue
+                match = re.search(r"(2160|1440|1080|720|480)", str(label)) or re.search(
+                    r"(2160|1440|1080|720|480)", url
+                )
+                height = int(match.group(1)) if match else quality
+                candidates.append({
+                    "url": url,
+                    "height": height,
+                    "kind": "file",
+                    "format": group_name
+                })
+
+        candidates.sort(key=lambda item: (
+            item["height"] > quality,
+            abs(quality - item["height"]),
+            -item["height"],
+            item["format"] != "mp4"
+        ))
+        for field, format_name in (
+            ("hls_h264", "hls"),
+            ("dash_h264", "dash"),
+            ("dash_av1", "dash-av1")
+        ):
+            url = selected.get(field)
+            if isinstance(url, str) and url.startswith(("http://", "https://")):
+                candidates.append({
+                    "url": url,
+                    "height": quality,
+                    "kind": "stream",
+                    "format": format_name
+                })
+
+        if not candidates:
+            raise RuntimeError("Steam trailer has no playable source")
+
+        selected_source = candidates[0]
+        poster = selected.get("thumbnail")
+        return {
+            "url": selected_source["url"],
+            "height": selected_source["height"],
+            "movieId": str(selected.get("id") or ""),
+            "name": str(selected.get("name") or "Steam trailer"),
+            "poster": poster if isinstance(poster, str) else "",
+            "streaming": selected_source["kind"] == "stream",
+            "format": selected_source["format"],
+            "requestedMovieId": requested_id,
+            "catalogRefreshed": True
+        }
+
+    def _resolve_bulk_source(self, item: dict) -> tuple[str, str, int]:
+        source = item.get("source")
+        value = item.get("value")
+        source_appid = int(item.get("sourceAppId") or 0)
+        if source in {"steam", "youtube"} and value:
+            return source, value, source_appid
+        appid = item["appid"]
+        if appid < 2147483648:
+            trailer = self._get_steam_trailer_sync(appid)
+            if trailer.get("ok"):
+                return "steam", str(trailer.get("movieId") or ""), appid
+        title = item.get("title") or ""
+        if title:
+            result = self._search_youtube_trailer_sync(title)
+            if result.get("ok") and result.get("videoId"):
+                return "youtube", str(result["videoId"]), 0
+        return "", "", 0
+
+    def _delete_local_trailer_sync(self, appid: int) -> dict:
+        clean_appid = self._validate_appid(appid)
+        with self._trailer_lock:
+            library = self._load_trailer_library()
+            assignment = library["assignments"].pop(str(clean_appid), None)
+            self._save_trailer_library(library)
+        self._delete_assignment_files(assignment)
+        return {"ok": True, "appid": clean_appid, "deleted": bool(assignment)}
+
+    def _delete_all_local_trailers_sync(self) -> dict:
+        with self._trailer_lock:
+            library = self._load_trailer_library()
+            assignments = list(library["assignments"].values())
+            library["assignments"] = {}
+            self._save_trailer_library(library)
+        for assignment in assignments:
+            self._delete_assignment_files(assignment)
+        cleanup = self._cleanup_unassigned_trailers_sync()
+        return {"ok": True, "deleted": len(assignments), "filesRemoved": cleanup.get("filesRemoved", 0)}
+
+    def _cleanup_unassigned_trailers_sync(self) -> dict:
+        with self._trailer_lock:
+            library = self._load_trailer_library()
+            referenced = set()
+            for assignment in library["assignments"].values():
+                if not isinstance(assignment, dict):
+                    continue
+                for field in ("video", "audio"):
+                    if assignment.get(field):
+                        try:
+                            referenced.add(self._safe_media_path(assignment[field]).resolve())
+                        except ValueError:
+                            pass
+            removed = 0
+            bytes_removed = 0
+            for path in self._trailers_dir.rglob("*"):
+                if not path.is_file() or path.resolve() in referenced:
+                    continue
+                if any(part.startswith(("download-", "import-")) for part in path.parts):
+                    try:
+                        if time.time() - path.stat().st_mtime < 6 * 60 * 60:
+                            continue
+                    except OSError:
+                        continue
+                try:
+                    bytes_removed += path.stat().st_size
+                    path.unlink()
+                    removed += 1
+                except OSError:
+                    decky.logger.warning("TrailerHero could not remove an unassigned trailer")
+            for directory in sorted(self._trailers_dir.rglob("*"), key=lambda path: len(path.parts), reverse=True):
+                if directory.is_dir():
+                    try:
+                        directory.rmdir()
+                    except OSError:
+                        pass
+        return {"ok": True, "filesRemoved": removed, "bytesRemoved": bytes_removed}
+
+    def _get_steam_trailer_preview_sync(self, appid: int, movie_id: str, quality: int) -> dict:
+        clean_appid = self._validate_appid(appid)
+        safe_quality = self._validate_quality(quality)
+        try:
+            preview = self._resolve_steam_preview(clean_appid, movie_id, safe_quality)
+            if preview.get("streaming"):
+                preview_id = self._adaptive_preview_id(
+                    clean_appid, str(preview.get("movieId") or movie_id), safe_quality, str(preview["url"])
+                )
+                status = self._get_steam_trailer_preview_status_sync(preview_id)
+                if status.get("ready"):
+                    preview.update({"url": status["url"], "streaming": False, "format": "mp4",
+                                    "pending": False, "previewId": preview_id})
+                else:
+                    self._start_adaptive_preview(preview_id, str(preview["url"]), safe_quality)
+                    preview.update({"url": "", "pending": True, "previewId": preview_id})
+            return {"ok": True, "appid": clean_appid, **preview}
+        except Exception as error:
+            decky.logger.exception("TrailerHero failed to resolve Steam trailer preview")
+            return {"ok": False, "appid": clean_appid, "error": str(error)}
+
+    async def get_steam_trailer(self, appid: int, refresh: bool = False) -> dict:
+        return await asyncio.to_thread(
+            self._get_steam_trailer_sync,
+            int(appid),
+            bool(refresh)
+        )
 
     async def eval_in_big_picture(self, code: str) -> dict:
         try:
@@ -59,8 +1081,10 @@ class Plugin:
     async def resolve_steam_app_id(self, query: str) -> dict:
         return await asyncio.to_thread(self._resolve_steam_app_id_sync, str(query))
 
-    def _get_steam_trailer_sync(self, appid: int) -> dict:
-        if appid in self._cache:
+    def _get_steam_trailer_sync(self, appid: int, refresh: bool = False) -> dict:
+        if refresh:
+            self._cache.pop(appid, None)
+        elif appid in self._cache:
             return self._cache[appid]
 
         try:
@@ -94,9 +1118,19 @@ class Plugin:
             result = {
                 "ok": True,
                 "appid": appid,
+                "movieId": str(movie_id),
                 "name": movie.get("name") or "Steam trailer",
                 "url": candidates[0],
-                "candidates": candidates
+                "candidates": candidates,
+                "movies": [
+                    {
+                        "id": str(candidate.get("id") or ""),
+                        "name": str(candidate.get("name") or f"Steam trailer {candidate.get('id') or ''}"),
+                        "highlight": bool(candidate.get("highlight"))
+                    }
+                    for candidate in movies
+                    if candidate.get("id")
+                ]
             }
             return self._remember(appid, result)
         except Exception as error:
@@ -137,6 +1171,18 @@ class Plugin:
                     if isinstance(url, str) and url.startswith(("http://", "https://")):
                         candidates.append(url)
 
+        hls_url = movie.get("hls_h264")
+        if hls_url:
+            candidates.append(hls_url)
+
+        dash_h264 = movie.get("dash_h264")
+        if dash_h264:
+            candidates.append(dash_h264)
+
+        dash_av1 = movie.get("dash_av1")
+        if dash_av1:
+            candidates.append(dash_av1)
+
         direct_movie_files = [
             "movie2160.mp4",
             "movie1440.mp4",
@@ -147,18 +1193,6 @@ class Plugin:
         ]
         candidates.extend(f"{shared_base}/{file_name}" for file_name in direct_movie_files)
         candidates.extend(f"{cdn_base}/{file_name}" for file_name in direct_movie_files)
-
-        dash_h264 = movie.get("dash_h264")
-        if dash_h264:
-            candidates.append(dash_h264)
-
-        dash_av1 = movie.get("dash_av1")
-        if dash_av1:
-            candidates.append(dash_av1)
-
-        hls_url = movie.get("hls_h264")
-        if hls_url:
-            candidates.append(hls_url)
 
         return self._unique_urls(candidates)
 
@@ -482,6 +1516,36 @@ class Plugin:
             int(target_height or 2160)
         )
 
+    async def get_youtube_trailer_preview(self, video_id: str, target_height: int = 1080) -> dict:
+        return await asyncio.to_thread(
+            self._get_youtube_trailer_preview_sync,
+            str(video_id),
+            int(target_height or 1080)
+        )
+
+    def _get_youtube_trailer_preview_sync(self, video_id: str, target_height: int = 1080) -> dict:
+        clean_video_id = self._extract_youtube_id(video_id)
+        if not clean_video_id:
+            return {"ok": False, "error": "Invalid YouTube trailer"}
+        quality = max(360, min(int(target_height or 1080), 1080))
+        watch_url = f"https://www.youtube.com/watch?v={clean_video_id}"
+        preview_id = hashlib.sha256(f"youtube:{clean_video_id}:{quality}".encode("utf-8")).hexdigest()[:24]
+        target = self._preview_dir / preview_id / "preview.mp4"
+        if target.is_file() and target.stat().st_size >= 1024:
+            os.utime(target.parent, None)
+            return {
+                "ok": True, "ready": True, "pending": False,
+                "previewId": preview_id, "videoId": clean_video_id,
+                "url": self._preview_url(preview_id), "bytes": target.stat().st_size,
+                "thumbnail": f"https://i.ytimg.com/vi/{clean_video_id}/hqdefault.jpg"
+            }
+        self._start_adaptive_preview(preview_id, watch_url, quality)
+        return {
+            "ok": True, "ready": False, "pending": True,
+            "previewId": preview_id, "videoId": clean_video_id,
+            "thumbnail": f"https://i.ytimg.com/vi/{clean_video_id}/hqdefault.jpg"
+        }
+
     def _resolve_youtube_streams_sync(self, video_id: str, target_height: int = 2160) -> dict:
         clean_video_id = self._extract_youtube_id(video_id)
         if not clean_video_id:
@@ -519,12 +1583,14 @@ class Plugin:
 
         safe_target = max(360, min(int(target_height or 2160), 2160))
         candidates = self._rank_youtube_stream_candidates(payload.get("formats") or [], safe_target)
+        audio_candidates = self._rank_youtube_audio_candidates(payload.get("formats") or [])
         return {
             "ok": bool(candidates),
             "videoId": clean_video_id,
             "title": payload.get("title") or "",
             "targetHeight": safe_target,
             "candidates": candidates,
+            "audioCandidates": audio_candidates,
             "error": "" if candidates else "Nessuno stream YouTube diretto riproducibile trovato"
         }
 
@@ -610,6 +1676,46 @@ class Plugin:
 
         candidates.sort(key=candidate_key)
         return candidates[:12]
+
+    def _rank_youtube_audio_candidates(self, formats: list) -> list:
+        candidates = []
+        seen_urls = set()
+        for entry in formats:
+            url = entry.get("url")
+            acodec = str(entry.get("acodec") or "")
+            vcodec = str(entry.get("vcodec") or "")
+            protocol = str(entry.get("protocol") or "")
+            ext = str(entry.get("ext") or "")
+            if (
+                not isinstance(url, str) or
+                not url.startswith(("http://", "https://")) or
+                url in seen_urls or
+                not acodec or
+                acodec == "none" or
+                vcodec not in {"", "none"} or
+                protocol in {"mhtml"} or
+                ext in {"mhtml", "storyboard"}
+            ):
+                continue
+            seen_urls.add(url)
+            candidates.append({
+                "url": url,
+                "ext": ext,
+                "acodec": acodec,
+                "abr": entry.get("abr") or entry.get("tbr") or 0,
+                "formatId": str(entry.get("format_id") or ""),
+                "filesize": entry.get("filesize") or entry.get("filesize_approx") or 0,
+            })
+
+        def candidate_key(candidate: dict):
+            codec = str(candidate.get("acodec") or "").lower()
+            ext = str(candidate.get("ext") or "").lower()
+            compatibility = 3 if codec.startswith(("mp4a", "aac")) else 2 if codec.startswith("opus") else 1
+            container = 3 if ext in {"m4a", "mp4"} else 2 if ext == "webm" else 1
+            return (-compatibility, -container, -float(candidate.get("abr") or 0))
+
+        candidates.sort(key=candidate_key)
+        return candidates[:6]
 
     def _search_youtube_videos_sync(self, query: str, limit: int = 10) -> dict:
         clean_query = " ".join(str(query or "").split())
@@ -827,6 +1933,11 @@ class Plugin:
                 "url": result.get("url") or result.get("webpage_url") or f"https://www.youtube.com/watch?v={video_id}",
                 "webpage_url": result.get("webpage_url") or result.get("url") or f"https://www.youtube.com/watch?v={video_id}",
                 "rank": int(result.get("rank") or rank),
+                "thumbnail": result.get("thumbnail") or f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+                "thumbnails": result.get("thumbnails") or [
+                    {"url": f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg", "width": 320, "height": 180},
+                    {"url": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg", "width": 480, "height": 360},
+                ],
             }
             normalized["score"] = self._score_youtube_result(clean_query, normalized)
             ranked.append(normalized)
