@@ -55,6 +55,12 @@ Steam MPEG-DASH and HLS trailers are now materialized through the bundled curren
 
 YouTube downloads now pass the original watch URL to yt-dlp end-to-end instead of downloading expiring signed preview URLs. Steam, YouTube and local previews autoplay and loop automatically. The per-game trailer mode presents Streaming, Download/Local, and Import as controller-friendly actions with explicit saved-state and deletion feedback.
 
+The 1.5.0 maintenance build fixes the local importer with a real Windows video chooser and a controller-friendly internal browser fallback. Folder entries are opened instead of being submitted as files, and every selected path is checked again before import.
+
+Per-game Steam and YouTube previews now prefer a short, compatibility-oriented local MP4 clip while keeping direct-stream fallbacks available. A preview is considered active only after its playback time actually advances, so a decoded thumbnail or first frame is no longer mistaken for a running video.
+
+The dedicated settings route pauses normal game-page runtime refreshes while it is open, avoids embedding a YouTube iframe in Steam's focus tree, and contains unexpected rendering errors inside TrailerHero instead of allowing them to replace the whole Shared SteamUI view. Frontend failures are also written to the Decky log for diagnosis. The project and installer use the same `main.py` and `dist/index.js` implementation.
+
 ## 1.4.0
 
 Trailer playback is now strictly tied to Steam's real game-detail route. Library Home remains trailer-free even while Steam keeps stale URLs in the visible Big Picture window or displays a full-width focused hero.

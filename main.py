@@ -85,6 +85,16 @@ class Plugin:
     async def get_steam_trailer_preview_status(self, preview_id: str) -> dict:
         return await asyncio.to_thread(self._get_steam_trailer_preview_status_sync, str(preview_id or ""))
 
+    async def report_frontend_error(self, surface: str, message: str, stack: str = "") -> dict:
+        clean_surface = self._trim_message(str(surface or "surface").replace("\n", " "), 80)
+        clean_message = self._trim_message(str(message or "Unknown frontend error").replace("\n", " "), 500)
+        clean_stack = self._trim_message(str(stack or "").replace("\r", ""), 3000)
+        decky.logger.error(
+            f"TrailerHero frontend error [{clean_surface}]: {clean_message}"
+            + (f"\n{clean_stack}" if clean_stack else "")
+        )
+        return {"ok": True}
+
     async def get_local_trailer(self, appid: int = 0) -> dict:
         return await asyncio.to_thread(self._get_local_trailer_sync, int(appid or 0))
 
@@ -99,6 +109,27 @@ class Plugin:
             int(appid),
             str(movie_id or ""),
             int(quality or 2160)
+        )
+
+    async def get_local_trailer_picker_start(self) -> dict:
+        return await asyncio.to_thread(self._get_local_trailer_picker_start_sync)
+
+    async def choose_local_trailer_file(self, start_path: str = "") -> dict:
+        return await asyncio.to_thread(
+            self._choose_local_trailer_file_sync,
+            str(start_path or "")
+        )
+
+    async def inspect_local_trailer_path(self, path: str) -> dict:
+        return await asyncio.to_thread(
+            self._inspect_local_trailer_path_sync,
+            str(path or "")
+        )
+
+    async def list_local_trailer_directory(self, path: str = "") -> dict:
+        return await asyncio.to_thread(
+            self._list_local_trailer_directory_sync,
+            str(path or "")
         )
 
     async def import_local_trailer(self, appid: int, path: str, title: str = "") -> dict:
@@ -250,6 +281,16 @@ class Plugin:
             def do_GET(self):
                 self._serve(True)
 
+            def do_OPTIONS(self):
+                self.send_response(204)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Range")
+                self.send_header("Access-Control-Max-Age", "600")
+                self.send_header("Cross-Origin-Resource-Policy", "cross-origin")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
             def _serve(self, include_body: bool):
                 parsed = urllib.parse.urlparse(self.path)
                 parts = [part for part in parsed.path.split("/") if part]
@@ -285,6 +326,10 @@ class Plugin:
                 self.send_response(206 if range_header else 200)
                 self.send_header("Accept-Ranges", "bytes")
                 self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Headers", "Range")
+                self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+                self.send_header("Access-Control-Expose-Headers", "Accept-Ranges, Content-Length, Content-Range")
+                self.send_header("Cross-Origin-Resource-Policy", "cross-origin")
                 self.send_header("Cache-Control", "no-cache")
                 self.send_header("Content-Type", mimetypes.guess_type(path.name)[0] or "application/octet-stream")
                 self.send_header("Content-Length", str(length))
@@ -348,8 +393,12 @@ class Plugin:
         root = self._preview_dir.resolve()
         candidate = (root / preview_id / filename).resolve()
         candidate.relative_to(root)
-        if not candidate.is_file():
+        if not candidate.is_file() or candidate.stat().st_size < 1024:
             raise FileNotFoundError(candidate)
+        try:
+            self._validate_video_file(candidate)
+        except (OSError, ValueError) as error:
+            raise FileNotFoundError(candidate) from error
         return candidate
 
     def _preview_url(self, preview_id: str) -> str:
@@ -361,70 +410,214 @@ class Plugin:
     def _cleanup_preview_cache(self, max_entries: int = 6, max_age: int = 6 * 60 * 60):
         try:
             self._preview_dir.mkdir(parents=True, exist_ok=True)
+            now = time.time()
+            with self._preview_lock:
+                active_preview_ids = {
+                    key for key, job in self._preview_jobs.items()
+                    if (
+                        isinstance(job, dict)
+                        and job.get("state") == "running"
+                        and now - float(job.get("createdAt") or 0) <= 240
+                    )
+                }
             entries = sorted(
                 (path for path in self._preview_dir.iterdir() if path.is_dir()),
                 key=lambda path: path.stat().st_mtime,
                 reverse=True
             )
-            now = time.time()
-            for index, path in enumerate(entries):
+            removable_index = 0
+            for path in entries:
                 try:
-                    if index >= max_entries or now - path.stat().st_mtime > max_age:
+                    if path.name in active_preview_ids:
+                        continue
+                    if removable_index >= max_entries or now - path.stat().st_mtime > max_age:
                         shutil.rmtree(path, ignore_errors=True)
+                    removable_index += 1
                 except OSError:
                     pass
         except OSError:
             pass
 
     def _adaptive_preview_id(self, appid: int, movie_id: str, quality: int, url: str) -> str:
-        raw = f"{appid}:{movie_id}:{quality}:{url}".encode("utf-8")
+        raw = f"preview-clip-v3:{appid}:{movie_id}:{quality}:{url}".encode("utf-8")
         return hashlib.sha256(raw).hexdigest()[:24]
 
     def _get_steam_trailer_preview_status_sync(self, preview_id: str) -> dict:
         clean_id = str(preview_id or "")
         try:
             path = self._preview_media_path(clean_id)
-            return {"ok": True, "ready": True, "pending": False, "previewId": clean_id,
-                    "url": self._preview_url(clean_id), "bytes": path.stat().st_size}
+            return {
+                "ok": True,
+                "ready": True,
+                "pending": False,
+                "previewId": clean_id,
+                "url": self._preview_url(clean_id),
+                "bytes": path.stat().st_size
+            }
         except (ValueError, FileNotFoundError):
             pass
         with self._preview_lock:
             job = dict(self._preview_jobs.get(clean_id) or {})
-        if job.get("error"):
-            return {"ok": False, "ready": False, "pending": False, "previewId": clean_id,
-                    "error": str(job["error"])}
-        return {"ok": True, "ready": False, "pending": bool(job), "previewId": clean_id}
+        state = str(job.get("state") or "")
+        age = time.time() - float(job.get("createdAt") or 0) if job else 0
+        if state == "running" and age <= 240:
+            return {
+                "ok": True,
+                "ready": False,
+                "pending": True,
+                "previewId": clean_id
+            }
+        if state == "failed" or job.get("error"):
+            return {
+                "ok": False,
+                "ready": False,
+                "pending": False,
+                "previewId": clean_id,
+                "error": str(job.get("error") or "Preview preparation failed")
+            }
+        if state == "running":
+            return {
+                "ok": False,
+                "ready": False,
+                "pending": False,
+                "previewId": clean_id,
+                "error": "Preview preparation timed out"
+            }
+        return {
+            "ok": True,
+            "ready": False,
+            "pending": False,
+            "previewId": clean_id
+        }
 
-    def _start_adaptive_preview(self, preview_id: str, url: str, quality: int):
+    def _start_adaptive_preview(self, preview_id: str, urls, quality: int) -> bool:
         target_dir = self._preview_dir / preview_id
         final_path = target_dir / "preview.mp4"
-        if final_path.is_file():
-            return
+        try:
+            if final_path.is_file() and final_path.stat().st_size >= 1024:
+                return False
+            final_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        source_values = urls if isinstance(urls, (list, tuple)) else [urls]
+        sources = self._unique_urls([str(url or "").strip() for url in source_values])
+        sources = [url for url in sources if url.startswith(("http://", "https://"))][:18]
+        if not sources:
+            return False
+
+        now = time.time()
+        job_token = uuid.uuid4().hex
         with self._preview_lock:
-            if preview_id in self._preview_jobs:
-                return
-            self._preview_jobs[preview_id] = {"state": "running", "createdAt": time.time()}
+            current = dict(self._preview_jobs.get(preview_id) or {})
+            current_age = now - float(current.get("createdAt") or 0)
+            if current.get("state") == "running" and current_age < 180:
+                return False
+            self._preview_jobs[preview_id] = {
+                "state": "running",
+                "createdAt": now,
+                "sourceCount": len(sources),
+                "sourceIndex": 0,
+                "token": job_token
+            }
+
+        def is_current_job() -> bool:
+            with self._preview_lock:
+                current_job = self._preview_jobs.get(preview_id) or {}
+                return current_job.get("token") == job_token
 
         def worker():
-            staging = target_dir / "preview.part.mp4"
+            errors = []
+            cancel_event = threading.Event()
             try:
                 target_dir.mkdir(parents=True, exist_ok=True)
-                self._download_adaptive_stream(url, staging, quality)
-                os.replace(staging, final_path)
-                os.utime(target_dir, None)
-                with self._preview_lock:
-                    self._preview_jobs.pop(preview_id, None)
-                self._cleanup_preview_cache()
+                for source_index, url in enumerate(sources):
+                    if not is_current_job():
+                        cancel_event.set()
+                        return
+                    staging = target_dir / f"preview-{job_token}-{source_index}.part.mp4"
+                    try:
+                        staging.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    with self._preview_lock:
+                        current_job = self._preview_jobs.get(preview_id) or {}
+                        if current_job.get("token") != job_token:
+                            cancel_event.set()
+                            return
+                        current_job.update({
+                            "sourceIndex": source_index,
+                            "sourceUrl": url
+                        })
+                    try:
+                        parsed_path = urllib.parse.urlparse(url).path.lower()
+                        is_youtube_page = "youtube.com/" in url or "youtu.be/" in url
+                        is_manifest = parsed_path.endswith((".m3u8", ".mpd"))
+                        is_direct_iso = parsed_path.endswith((".mp4", ".m4v", ".mov"))
+                        preview_quality = max(360, min(int(quality or 720), 720))
+                        try:
+                            self._download_adaptive_stream(
+                                url,
+                                staging,
+                                preview_quality,
+                                cancel_event,
+                                prefer_compatibility=True,
+                                preview_seconds=24
+                            )
+                        except Exception:
+                            # A few Steam CDN files cannot be sectioned by yt-dlp. Keep a
+                            # direct-file fallback instead of losing the preview entirely.
+                            if is_direct_iso and not is_youtube_page and not is_manifest:
+                                self._download_url(url, staging, cancel_event)
+                            else:
+                                raise
+                        self._validate_video_file(staging)
+                        if not is_current_job():
+                            cancel_event.set()
+                            staging.unlink(missing_ok=True)
+                            return
+                        os.replace(staging, final_path)
+                        os.utime(target_dir, None)
+                        with self._preview_lock:
+                            current_job = self._preview_jobs.get(preview_id) or {}
+                            if current_job.get("token") == job_token:
+                                self._preview_jobs.pop(preview_id, None)
+                        decky.logger.info(
+                            f"TrailerHero preview ready: {preview_id} ({final_path.stat().st_size} bytes)"
+                        )
+                        self._cleanup_preview_cache()
+                        return
+                    except InterruptedError:
+                        try:
+                            staging.unlink(missing_ok=True)
+                        except OSError:
+                            pass
+                        return
+                    except Exception as error:
+                        errors.append(f"{source_index + 1}/{len(sources)} {self._trim_message(str(error), 180)}")
+                        try:
+                            staging.unlink(missing_ok=True)
+                        except OSError:
+                            pass
+                        decky.logger.warning(
+                            f"TrailerHero preview source {source_index + 1}/{len(sources)} failed: {error}"
+                        )
+                raise RuntimeError(" | ".join(errors[-4:]) or "No preview source could be materialized")
             except Exception as error:
-                try:
-                    staging.unlink(missing_ok=True)
-                except OSError:
-                    pass
                 with self._preview_lock:
-                    self._preview_jobs[preview_id] = {"state": "failed", "error": str(error), "createdAt": time.time()}
-                decky.logger.exception("TrailerHero adaptive preview failed")
+                    current_job = self._preview_jobs.get(preview_id) or {}
+                    if current_job.get("token") == job_token:
+                        self._preview_jobs[preview_id] = {
+                            "state": "failed",
+                            "error": str(error),
+                            "createdAt": time.time(),
+                            "sourceCount": len(sources),
+                            "token": job_token
+                        }
+                decky.logger.exception("TrailerHero preview materialization failed")
 
         threading.Thread(target=worker, name=f"TrailerHeroPreview-{preview_id[:6]}", daemon=True).start()
+        return True
 
     def _load_trailer_library(self) -> dict:
         with self._trailer_lock:
@@ -593,9 +786,342 @@ class Plugin:
             except (OSError, ValueError):
                 decky.logger.warning("TrailerHero could not remove replaced media")
 
+    def _get_local_trailer_picker_start_sync(self) -> dict:
+        candidates = [Path.home()]
+        if IS_WINDOWS:
+            candidates.extend([Path(os.environ.get("USERPROFILE", "")), Path("C:/")])
+        else:
+            candidates.extend([Path("/home/deck"), Path("/")])
+        for candidate in candidates:
+            try:
+                if str(candidate) and candidate.exists() and candidate.is_dir():
+                    return {"ok": True, "path": str(candidate.resolve())}
+            except (OSError, RuntimeError):
+                continue
+        return {"ok": True, "path": "C:/" if IS_WINDOWS else "/"}
+
+    def _normalize_local_path_value(self, raw_path: str) -> str:
+        value = str(raw_path or "").replace("\x00", "").strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1].strip()
+        if not value:
+            return ""
+        if value.lower().startswith("file:"):
+            parsed = urllib.parse.urlparse(value)
+            decoded_path = urllib.parse.unquote(parsed.path or "")
+            netloc = urllib.parse.unquote(parsed.netloc or "")
+            if IS_WINDOWS:
+                if re.fullmatch(r"[A-Za-z]:", netloc):
+                    value = f"{netloc}{decoded_path}"
+                elif netloc and netloc.lower() != "localhost":
+                    value = f"//{netloc}{decoded_path}"
+                else:
+                    value = decoded_path
+                if re.match(r"^/[A-Za-z]:[/\\]", value):
+                    value = value[1:]
+                value = value.replace("/", "\\")
+            else:
+                value = f"//{netloc}{decoded_path}" if netloc and netloc != "localhost" else decoded_path
+        return value
+
+    def _choose_local_trailer_file_sync(self, start_path: str = "") -> dict:
+        if not IS_WINDOWS:
+            return {
+                "ok": False,
+                "supported": False,
+                "cancelled": False,
+                "error": "The native Windows picker is not available on this platform"
+            }
+        powershell = shutil.which("powershell.exe") or shutil.which("powershell") or shutil.which("pwsh.exe") or shutil.which("pwsh")
+        if not powershell:
+            system_root = os.environ.get("SystemRoot") or os.environ.get("WINDIR") or r"C:\Windows"
+            bundled_powershell = Path(system_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+            if bundled_powershell.is_file():
+                powershell = str(bundled_powershell)
+        if not powershell:
+            return {
+                "ok": False,
+                "supported": False,
+                "cancelled": False,
+                "error": "Windows PowerShell is not available"
+            }
+
+        normalized_start = self._normalize_local_path_value(start_path)
+        try:
+            start = Path(normalized_start).expanduser() if normalized_start else Path.home()
+            if start.is_file():
+                start = start.parent
+            if not start.is_dir():
+                start = Path.home()
+            start = start.resolve()
+        except (OSError, RuntimeError, ValueError):
+            start = Path.home()
+
+        script = r'''
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$dialog = New-Object System.Windows.Forms.OpenFileDialog
+$dialog.Title = 'Choose a local trailer video'
+$dialog.Filter = 'Video files (*.mp4;*.m4v;*.mov;*.webm;*.mkv)|*.mp4;*.m4v;*.mov;*.webm;*.mkv|All files (*.*)|*.*'
+$dialog.Multiselect = $false
+$dialog.CheckFileExists = $true
+$dialog.CheckPathExists = $true
+$dialog.DereferenceLinks = $true
+$dialog.RestoreDirectory = $true
+$dialog.AutoUpgradeEnabled = $true
+$initial = $env:TRAILERHERO_PICKER_START
+if ($initial -and [System.IO.Directory]::Exists($initial)) {
+    $dialog.InitialDirectory = $initial
+}
+$owner = New-Object System.Windows.Forms.Form
+$owner.ShowInTaskbar = $false
+$owner.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedToolWindow
+$owner.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+$owner.Location = New-Object System.Drawing.Point(-32000, -32000)
+$owner.Size = New-Object System.Drawing.Size(1, 1)
+$owner.TopMost = $true
+try {
+    $owner.Show()
+    $owner.Activate()
+    $result = $dialog.ShowDialog($owner)
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($dialog.FileName)
+        [Console]::Out.Write('THPICK:' + [Convert]::ToBase64String($bytes))
+    } else {
+        [Console]::Out.Write('THCANCEL')
+    }
+} finally {
+    $dialog.Dispose()
+    $owner.Close()
+    $owner.Dispose()
+}
+'''
+        env = os.environ.copy()
+        env["TRAILERHERO_PICKER_START"] = str(start)
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        startupinfo = None
+        if hasattr(subprocess, "STARTUPINFO"):
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 0)
+            startupinfo.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
+        try:
+            result = subprocess.run(
+                [
+                    powershell,
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-STA",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    script
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=env,
+                creationflags=creationflags,
+                startupinfo=startupinfo,
+                timeout=60 * 60,
+                check=False
+            )
+        except subprocess.TimeoutExpired:
+            decky.logger.warning("TrailerHero native file picker timed out")
+            return {
+                "ok": False,
+                "supported": True,
+                "cancelled": False,
+                "error": "The Windows file picker timed out"
+            }
+        except (OSError, subprocess.SubprocessError) as error:
+            decky.logger.warning(f"TrailerHero native file picker failed to start: {error}")
+            return {
+                "ok": False,
+                "supported": False,
+                "cancelled": False,
+                "error": "The Windows file picker could not be opened"
+            }
+
+        output = str(result.stdout or "").strip().lstrip("\ufeff")
+        if result.returncode != 0:
+            diagnostic = self._trim_message(result.stderr or output, 240)
+            decky.logger.warning(f"TrailerHero native file picker failed: {diagnostic}")
+            return {
+                "ok": False,
+                "supported": False,
+                "cancelled": False,
+                "error": "The Windows file picker could not be opened"
+            }
+        if "THCANCEL" in output or not output:
+            return {"ok": True, "supported": True, "cancelled": True, "path": ""}
+        match = re.search(r"THPICK:([A-Za-z0-9+/=]+)", output)
+        if not match:
+            return {
+                "ok": False,
+                "supported": True,
+                "cancelled": False,
+                "error": "The Windows file picker returned an invalid path"
+            }
+        try:
+            selected_path = base64.b64decode(match.group(1), validate=True).decode("utf-8")
+        except (ValueError, UnicodeDecodeError) as error:
+            return {
+                "ok": False,
+                "supported": True,
+                "cancelled": False,
+                "error": f"The Windows file picker returned an invalid path: {error}"
+            }
+        info = self._inspect_local_trailer_path_sync(selected_path)
+        return {**info, "supported": True, "cancelled": False}
+
+    def _inspect_local_trailer_path_sync(self, raw_path: str) -> dict:
+        value = self._normalize_local_path_value(raw_path)
+        if not value:
+            return {
+                "ok": False,
+                "exists": False,
+                "isFile": False,
+                "isDirectory": False,
+                "path": "",
+                "error": "No path was selected"
+            }
+        try:
+            path = Path(value).expanduser().resolve()
+            exists = path.exists()
+            is_file = exists and path.is_file()
+            is_directory = exists and path.is_dir()
+            allowed_extensions = {".mp4", ".m4v", ".mov", ".webm", ".mkv"}
+            valid_video = is_file and path.suffix.lower() in allowed_extensions
+            error = ""
+            if not exists:
+                error = "The selected path does not exist"
+            elif is_directory:
+                error = "Select a video file instead of a folder"
+            elif not valid_video:
+                error = "Select an MP4, M4V, MOV, WebM or MKV video file"
+            return {
+                "ok": valid_video or is_directory,
+                "exists": exists,
+                "isFile": valid_video,
+                "isDirectory": is_directory,
+                "path": str(path),
+                "parent": str(path.parent),
+                "name": path.name,
+                "extension": path.suffix.lower(),
+                "error": error
+            }
+        except (OSError, RuntimeError, ValueError) as error:
+            return {
+                "ok": False,
+                "exists": False,
+                "isFile": False,
+                "isDirectory": False,
+                "path": value,
+                "error": str(error) or "The selected path is not valid"
+            }
+
+    def _list_local_trailer_directory_sync(self, raw_path: str) -> dict:
+        drives_sentinel = "__TRAILERHERO_DRIVES__"
+        value = self._normalize_local_path_value(raw_path)
+        if IS_WINDOWS and value == drives_sentinel:
+            entries = []
+            for code in range(ord("A"), ord("Z") + 1):
+                drive = Path(f"{chr(code)}:/")
+                try:
+                    if drive.exists() and drive.is_dir():
+                        entries.append({
+                            "name": f"{chr(code)}:",
+                            "path": str(drive),
+                            "isDirectory": True,
+                            "isFile": False,
+                            "size": 0
+                        })
+                except OSError:
+                    continue
+            return {
+                "ok": True,
+                "path": drives_sentinel,
+                "displayPath": "This PC",
+                "parent": "",
+                "entries": entries,
+                "total": len(entries),
+                "truncated": False,
+                "virtualRoot": True
+            }
+
+        if not value:
+            value = str(self._get_local_trailer_picker_start_sync().get("path") or ("C:/" if IS_WINDOWS else "/"))
+        try:
+            directory = Path(value).expanduser().resolve()
+            if not directory.exists():
+                return {
+                    "ok": False,
+                    "path": value,
+                    "displayPath": value,
+                    "parent": "",
+                    "entries": [],
+                    "error": "The selected folder does not exist"
+                }
+            if not directory.is_dir():
+                directory = directory.parent
+            allowed_extensions = {".mp4", ".m4v", ".mov", ".webm", ".mkv"}
+            entries = []
+            for child in directory.iterdir():
+                try:
+                    is_directory = child.is_dir()
+                    is_file = child.is_file() and child.suffix.lower() in allowed_extensions
+                    if not is_directory and not is_file:
+                        continue
+                    entries.append({
+                        "name": child.name,
+                        "path": str(child.resolve()),
+                        "isDirectory": is_directory,
+                        "isFile": is_file,
+                        "size": int(child.stat().st_size) if is_file else 0
+                    })
+                except (OSError, RuntimeError):
+                    continue
+            entries.sort(key=lambda entry: (not entry["isDirectory"], entry["name"].casefold()))
+            total = len(entries)
+            max_entries = 800
+            entries = entries[:max_entries]
+            parent_path = ""
+            try:
+                parent = directory.parent
+                if parent != directory:
+                    parent_path = str(parent)
+                elif IS_WINDOWS:
+                    parent_path = drives_sentinel
+            except (OSError, RuntimeError):
+                parent_path = drives_sentinel if IS_WINDOWS else ""
+            return {
+                "ok": True,
+                "path": str(directory),
+                "displayPath": str(directory),
+                "parent": parent_path,
+                "entries": entries,
+                "total": total,
+                "truncated": total > len(entries),
+                "virtualRoot": False
+            }
+        except (OSError, RuntimeError, ValueError) as error:
+            return {
+                "ok": False,
+                "path": value,
+                "displayPath": value,
+                "parent": "",
+                "entries": [],
+                "error": str(error) or "The selected folder could not be opened"
+            }
+
     def _import_local_trailer_sync(self, appid: int, raw_path: str, title: str) -> dict:
         clean_appid = self._validate_appid(appid)
-        source_path = Path(raw_path).expanduser().resolve()
+        source_value = self._normalize_local_path_value(raw_path)
+        if not source_value:
+            raise ValueError("No trailer file was selected")
+        source_path = Path(source_value).expanduser().resolve()
         self._validate_video_file(source_path)
         staging = Path(tempfile.mkdtemp(prefix="import-", dir=str(self._trailers_dir)))
         try:
@@ -712,23 +1238,50 @@ class Plugin:
         destination: Path,
         quality: int,
         cancel_event: threading.Event | None = None,
-        job_id: str | None = None
+        job_id: str | None = None,
+        prefer_compatibility: bool = False,
+        preview_seconds: int | None = None
     ):
         if not self._yt_dlp_path.is_file():
             raise RuntimeError("Bundled yt-dlp is missing")
         if not self._ffmpeg_path.is_file():
             raise RuntimeError("Bundled ffmpeg is missing")
         destination.parent.mkdir(parents=True, exist_ok=True)
+        safe_quality = max(360, min(int(quality or 1080), 2160))
+        format_selector = (
+            f"bv*[vcodec^=avc1][height<={safe_quality}]+ba[acodec^=mp4a]/"
+            f"bv*[vcodec^=avc1][height<={safe_quality}]+ba/"
+            f"b[ext=mp4][height<={safe_quality}]/"
+            f"bv*[height<={safe_quality}]+ba/b[height<={safe_quality}]/b"
+        )
+        if prefer_compatibility:
+            # Prefer a progressive AVC/AAC MP4 for SteamUI previews. Split streams
+            # remain as fallbacks when a progressive rendition is unavailable.
+            format_selector = (
+                f"b[ext=mp4][vcodec^=avc1][acodec^=mp4a][height<={safe_quality}]/"
+                f"bv*[vcodec^=avc1][height<={safe_quality}]+ba[acodec^=mp4a]/"
+                f"b[vcodec^=avc1][ext=mp4][height<={safe_quality}]/"
+                f"bv*[ext=mp4][height<={safe_quality}]+ba[ext=m4a]/"
+                f"b[ext=mp4][height<={safe_quality}]/"
+                f"bv*[height<={safe_quality}]+ba/b[height<={safe_quality}]/b"
+            )
         base_command = [
             str(self._yt_dlp_path),
             "--no-playlist", "--no-part", "--newline", "--no-cookies",
-            "--force-ipv4", "--retries", "3", "--fragment-retries", "3", "--extractor-retries", "3",
+            "--force-ipv4", "--socket-timeout", "12",
+            "--retries", "3", "--fragment-retries", "3", "--extractor-retries", "3",
             "--ffmpeg-location", str(self._ffmpeg_path.parent),
-            "-f", f"bv*[height<={quality}]+ba/b[height<={quality}]/b",
+            "-f", format_selector,
             "--merge-output-format", "mp4",
             "--remux-video", "mp4",
-            "-o", str(destination),
         ]
+        if preview_seconds:
+            clip_seconds = max(8, min(int(preview_seconds), 45))
+            base_command.extend([
+                "--download-sections", f"*00:00:00-00:00:{clip_seconds:02d}",
+                "--concurrent-fragments", "4"
+            ])
+        base_command.extend(["-o", str(destination)])
         if self._deno_path.is_file():
             base_command.extend(["--js-runtimes", f"deno:{self._deno_path}", "--remote-components", "ejs:npm"])
         is_youtube = "youtube.com/" in url or "youtu.be/" in url
@@ -739,13 +1292,19 @@ class Plugin:
                 url,
             ])
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if IS_WINDOWS else 0
+        startupinfo = None
+        if IS_WINDOWS and hasattr(subprocess, "STARTUPINFO"):
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 0)
+            startupinfo.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
         last_tail = []
         for attempt_index, command in enumerate(attempts):
             destination.unlink(missing_ok=True)
             decky.logger.info(f"TrailerHero yt-dlp materialization attempt {attempt_index + 1}/{len(attempts)}")
             process = subprocess.Popen(
                 command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                encoding="utf-8", errors="replace", creationflags=creationflags
+                encoding="utf-8", errors="replace", creationflags=creationflags,
+                startupinfo=startupinfo
             )
             tail = []
             try:
@@ -895,7 +1454,8 @@ class Plugin:
 
     def _resolve_steam_preview(self, appid: int, movie_id: str, quality: int) -> dict:
         payload = self._fetch_appdetails(appid)
-        movies = payload.get(str(appid), {}).get("data", {}).get("movies") or []
+        app_data = payload.get(str(appid), {})
+        movies = app_data.get("data", {}).get("movies") or []
         requested_id = str(movie_id or "")
         selected = next(
             (movie for movie in movies if str(movie.get("id") or "") == requested_id),
@@ -905,7 +1465,7 @@ class Plugin:
         if not selected:
             raise RuntimeError("No Steam trailer available")
 
-        candidates = []
+        direct_candidates = []
         for group_name in ("mp4", "webm"):
             group = selected.get(group_name)
             if not isinstance(group, dict):
@@ -917,19 +1477,46 @@ class Plugin:
                     r"(2160|1440|1080|720|480)", url
                 )
                 height = int(match.group(1)) if match else quality
-                candidates.append({
+                direct_candidates.append({
                     "url": url,
                     "height": height,
                     "kind": "file",
-                    "format": group_name
+                    "format": group_name,
+                    "generated": False
                 })
 
-        candidates.sort(key=lambda item: (
+        movie_asset_id = str(selected.get("id") or "")
+        if movie_asset_id:
+            generated_variants = (
+                ("movie2160.mp4", 2160),
+                ("movie1440.mp4", 1440),
+                ("movie1080.mp4", 1080),
+                ("movie720.mp4", 720),
+                ("movie_max.mp4", 1080),
+                ("movie480.mp4", 480),
+            )
+            for base in (
+                f"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{movie_asset_id}",
+                f"https://cdn.akamai.steamstatic.com/steam/apps/{movie_asset_id}"
+            ):
+                for filename, height in generated_variants:
+                    direct_candidates.append({
+                        "url": f"{base}/{filename}",
+                        "height": height,
+                        "kind": "file",
+                        "format": "mp4",
+                        "generated": True
+                    })
+
+        direct_candidates.sort(key=lambda item: (
+            bool(item.get("generated")),
             item["height"] > quality,
             abs(quality - item["height"]),
             -item["height"],
             item["format"] != "mp4"
         ))
+
+        adaptive_candidates = []
         for field, format_name in (
             ("hls_h264", "hls"),
             ("dash_h264", "dash"),
@@ -937,26 +1524,47 @@ class Plugin:
         ):
             url = selected.get(field)
             if isinstance(url, str) and url.startswith(("http://", "https://")):
-                candidates.append({
+                adaptive_candidates.append({
                     "url": url,
                     "height": quality,
                     "kind": "stream",
-                    "format": format_name
+                    "format": format_name,
+                    "generated": False
                 })
 
-        if not candidates:
+        declared_direct = [candidate for candidate in direct_candidates if not candidate.get("generated")]
+        generated_direct = [candidate for candidate in direct_candidates if candidate.get("generated")]
+        if declared_direct:
+            selected_source = declared_direct[0]
+        elif adaptive_candidates:
+            selected_source = adaptive_candidates[0]
+        elif generated_direct:
+            selected_source = generated_direct[0]
+        else:
             raise RuntimeError("Steam trailer has no playable source")
 
-        selected_source = candidates[0]
+        direct_urls = self._unique_urls([candidate["url"] for candidate in direct_candidates])
+        declared_urls = [candidate["url"] for candidate in direct_candidates if not candidate.get("generated")]
+        adaptive_urls = [candidate["url"] for candidate in adaptive_candidates]
+        generated_urls = [candidate["url"] for candidate in direct_candidates if candidate.get("generated")]
+        materialization_candidates = self._unique_urls([
+            selected_source["url"],
+            *declared_urls,
+            *adaptive_urls,
+            *generated_urls
+        ])
         poster = selected.get("thumbnail")
         return {
             "url": selected_source["url"],
             "height": selected_source["height"],
-            "movieId": str(selected.get("id") or ""),
+            "movieId": movie_asset_id,
             "name": str(selected.get("name") or "Steam trailer"),
             "poster": poster if isinstance(poster, str) else "",
             "streaming": selected_source["kind"] == "stream",
             "format": selected_source["format"],
+            "candidates": direct_urls,
+            "adaptiveCandidates": adaptive_urls,
+            "materializationCandidates": materialization_candidates,
             "requestedMovieId": requested_id,
             "catalogRefreshed": True
         }
@@ -1042,17 +1650,42 @@ class Plugin:
         safe_quality = self._validate_quality(quality)
         try:
             preview = self._resolve_steam_preview(clean_appid, movie_id, safe_quality)
-            if preview.get("streaming"):
-                preview_id = self._adaptive_preview_id(
-                    clean_appid, str(preview.get("movieId") or movie_id), safe_quality, str(preview["url"])
+            materialization_candidates = list(preview.pop("materializationCandidates", []) or [])
+            primary_source = str(
+                materialization_candidates[0] if materialization_candidates else preview.get("url") or ""
+            )
+            preview_id = self._adaptive_preview_id(
+                clean_appid,
+                str(preview.get("movieId") or movie_id),
+                safe_quality,
+                primary_source
+            )
+            status = self._get_steam_trailer_preview_status_sync(preview_id)
+            if status.get("ready"):
+                local_url = status["url"]
+                preview.update({
+                    "url": local_url,
+                    "candidates": self._unique_urls([local_url, *(preview.get("candidates") or [])]),
+                    "streaming": False,
+                    "format": "mp4",
+                    "pending": False,
+                    "previewId": preview_id
+                })
+            else:
+                started = self._start_adaptive_preview(
+                    preview_id,
+                    materialization_candidates or [primary_source],
+                    safe_quality
                 )
-                status = self._get_steam_trailer_preview_status_sync(preview_id)
-                if status.get("ready"):
-                    preview.update({"url": status["url"], "streaming": False, "format": "mp4",
-                                    "pending": False, "previewId": preview_id})
-                else:
-                    self._start_adaptive_preview(preview_id, str(preview["url"]), safe_quality)
-                    preview.update({"url": "", "pending": True, "previewId": preview_id})
+                preview.update({
+                    "pending": bool(materialization_candidates or primary_source),
+                    "previewId": preview_id,
+                    "materializationStarted": bool(started)
+                })
+                if preview.get("streaming"):
+                    # Browsers cannot play the raw DASH/HLS manifest in a normal video element.
+                    # Keep direct file candidates for immediate playback while the local MP4 is prepared.
+                    preview["url"] = ""
             return {"ok": True, "appid": clean_appid, **preview}
         except Exception as error:
             decky.logger.exception("TrailerHero failed to resolve Steam trailer preview")
@@ -1529,7 +2162,7 @@ class Plugin:
             return {"ok": False, "error": "Invalid YouTube trailer"}
         quality = max(360, min(int(target_height or 1080), 1080))
         watch_url = f"https://www.youtube.com/watch?v={clean_video_id}"
-        preview_id = hashlib.sha256(f"youtube:{clean_video_id}:{quality}".encode("utf-8")).hexdigest()[:24]
+        preview_id = hashlib.sha256(f"youtube-preview-clip-v3:{clean_video_id}:{quality}".encode("utf-8")).hexdigest()[:24]
         target = self._preview_dir / preview_id / "preview.mp4"
         if target.is_file() and target.stat().st_size >= 1024:
             os.utime(target.parent, None)
@@ -1623,7 +2256,7 @@ class Plugin:
                 height <= 0 or
                 not vcodec or
                 vcodec == "none" or
-                protocol in {"mhtml"} or
+                protocol not in {"http", "https"} or
                 ext in {"mhtml", "storyboard"}
             ):
                 continue
@@ -1693,7 +2326,7 @@ class Plugin:
                 not acodec or
                 acodec == "none" or
                 vcodec not in {"", "none"} or
-                protocol in {"mhtml"} or
+                protocol not in {"http", "https"} or
                 ext in {"mhtml", "storyboard"}
             ):
                 continue
