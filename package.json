@@ -1,12 +1,13 @@
 {
   "name": "trailerhero",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "A Decky plugin that turns Steam Big Picture hero art into cinematic game trailers.",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "python scripts/package-release.py",
-    "test": "node --check dist/index.js && python -m py_compile main.py"
+    "build": "node scripts/build-frontend.mjs",
+    "test": "node --check dist/index.js && node --test tests/frontend.test.mjs && python -m unittest discover -s tests -v",
+    "package": "python scripts/package-release.py"
   },
   "keywords": [
     "decky",

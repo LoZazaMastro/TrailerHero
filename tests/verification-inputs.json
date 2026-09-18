@@ -1,0 +1,26 @@
+{
+  "steam_reference": "steamui - Copia/chunk~2dcc5aaf7.js",
+  "steam_sha256": "7cbf985911163d5436ed45c0ad7602e72343e4cc23b116f2ecbce34a0f8ce967",
+  "static_checks": {
+    "route_root_builder": true,
+    "route_collection_builder": true,
+    "menu_export_wrapper": true,
+    "menu_module_signature": true,
+    "menu_property_action": true,
+    "hero_asset_model": true
+  },
+  "bundled_tools": {
+    "ffmpeg.exe": {
+      "sha256": "228d7a8556258de907fdb55f36850078ebc7680b84ec30d84ea02e99bec1d1eb",
+      "unchanged": true
+    },
+    "yt-dlp.exe": {
+      "sha256": "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a",
+      "unchanged": true
+    },
+    "deno.exe": {
+      "sha256": "a8afddac131261dc9e085c6a1a79544f0567bd09e481034b5d1533588cba9b30",
+      "unchanged": true
+    }
+  }
+}

@@ -1,4 +1,25 @@
-# Source Recovery Notes
+# Source Recovery Notes — 1.5.1
+
+The supplied 1.5.0 project contained no original TypeScript source tree. For this
+release, its readable JavaScript bundle was copied into `src/index.js` and patched
+there. That file is the editable frontend source of truth for 1.5.1. The build
+validates it and produces an identical `dist/index.js`; no dependency reinstall,
+minification or replacement with a guessed implementation is performed.
+
+Frontend runtime revision: `1.5.1.1`. Settings schema: **13**, unchanged.
+Backend source: `main.py`. Local-media implementation: `_LoopbackMediaServer` in
+that file, with no dependency on `http.server`, `socketserver` or `mimetypes`.
+The Project archive includes offline tests and release documentation. The Installer
+contains only runtime files, unchanged bundled executables and user documentation.
+
+Preserve the internal file browser, all existing languages, Steam/YouTube/local
+source choices, previews, trimming, audio switching and the strict Home exclusion.
+See the handover for the distinction between fixed plugin issues and the separate
+Decky IPC reset seen in the logs.
+
+## Historical recovery notes from 1.5.0
+
+The following notes describe the supplied baseline, not the current build source.
 
 This repository is reconstructed from the validated TrailerHero 1.2.5 plugin bundle.
 

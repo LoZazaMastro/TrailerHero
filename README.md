@@ -47,6 +47,54 @@ YouTube uses direct max-quality playback resolved with yt-dlp, then falls back t
 
 TrailerHero hides as much embedded-player chrome as possible during fallback, but YouTube can still briefly show its own internal overlay in some cases.
 
+## 1.5.1 — September 18, 2026
+
+Fixes startup on the supplied Windows Decky runtime when `http.server` is missing.
+The read-only media server is now self-contained, bound to loopback and protected
+by a per-process token, with bounded connections, correct byte ranges, CORS and
+preflight support. No Python installation or extra pip dependency is required.
+
+Updated game-page recognition for Steam's supplied route definitions, including
+collection game pages and full 32-bit non-Steam shortcut IDs. The route must agree
+with the visible hero; Home, library grids, achievements, properties and the
+TrailerHero editor remain excluded. The native game menu hook retries when Steam
+loads its module late and leaves Steam's original menu intact if enhancement fails.
+
+Local assignments remain available after a frontend restart. Successful library
+refreshes renew media URLs after a backend restart; failed reads do not reset
+saved local-source preferences. Runtime polling is stopped on unload, and pending
+library reads cannot reinstall the plugin after it has been removed.
+
+The original log also includes `ConnectionResetError [WinError 64]` inside
+`decky_loader/localplatform/localsocket.py`. That is Decky's IPC listener, not the
+TrailerHero media server. This release handles its own media/debugger disconnects;
+it does not modify the loader, suppress its exception handler or claim to repair
+Decky's separate IPC implementation.
+
+Installer and Project archives contain the same runtime. Existing settings and
+trailer files are not included, overwritten or migrated by the release package.
+The bundled Windows `ffmpeg.exe`, `yt-dlp.exe` and `deno.exe` are unchanged.
+Linux/SteamOS playback with native tool dependencies has not been tested here.
+
+### Rebuild and test the recovered project
+
+The original TypeScript tree was not present in the supplied 1.5.0 project.
+`src/index.js` is the recovered, readable JavaScript entrypoint; it includes the
+existing bundle's inlined dependencies. `dist/index.js` is built by copying that
+validated source, not by inventing missing TypeScript. No `npm install` is needed.
+Use Node.js 18+ and Python 3.10+:
+
+```sh
+npm run build
+npm test
+npm run package
+```
+
+To select an output directory, run
+`python scripts/package-release.py --output-dir /path/to/releases`.
+See `HANDOVER_1.5.1.md` and `TEST_REPORT_1.5.1.md` in the Project archive for the
+change scope, evidence and remaining real-device checks.
+
 ## 1.5.0
 
 Added the full-screen per-game settings route with controller-confined four-direction focus, automatic scroll-follow-focus, and immediate Steam header/footer/search suppression with clean restoration on exit.

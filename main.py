@@ -2,9 +2,7 @@ import asyncio
 import base64
 import difflib
 import hashlib
-import http.server
 import json
-import mimetypes
 import os
 import re
 import secrets
@@ -27,6 +25,267 @@ import decky
 
 
 IS_WINDOWS = os.name == "nt"
+
+
+class _LoopbackMediaServer:
+    """Token-protected, read-only HTTP media server for frozen Decky runtimes.
+
+    Deliberately does not import http.server, socketserver or mimetypes: these
+    optional stdlib modules are absent in the supplied Windows Decky runtime.
+    Only loopback is bound; paths always resolve through the plugin's allowlist.
+    One request per connection, bounded headers/workers and explicit timeouts
+    keep seeks, CEF reloads and plugin unloads from leaving idle workers behind.
+    """
+
+    _MAX_HEADERS = 16384
+    _MIME = {
+        ".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime",
+        ".webm": "video/webm", ".mkv": "video/x-matroska",
+        ".m4a": "audio/mp4", ".aac": "audio/aac", ".mp3": "audio/mpeg",
+        ".ogg": "audio/ogg", ".opus": "audio/ogg", ".wav": "audio/wav",
+    }
+    _REASONS = {
+        200: "OK", 204: "No Content", 206: "Partial Content", 400: "Bad Request",
+        403: "Forbidden", 404: "Not Found", 405: "Method Not Allowed",
+        416: "Range Not Satisfiable", 431: "Request Header Fields Too Large",
+        503: "Service Unavailable",
+    }
+
+    def __init__(self, plugin):
+        self.plugin = plugin
+        self._stop = threading.Event()
+        self._lock = threading.RLock()
+        self._clients = set()
+        self._workers = set()
+        self._slots = threading.BoundedSemaphore(8)
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            self._socket.bind(("127.0.0.1", 0))
+            self._socket.listen(16)
+            self._socket.settimeout(0.25)
+            self.server_address = self._socket.getsockname()
+            self.server_port = self.server_address[1]
+        except BaseException:
+            self._socket.close()
+            raise
+
+    def serve_forever(self):
+        while not self._stop.is_set():
+            try:
+                client, _address = self._socket.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                if not self._stop.is_set():
+                    decky.logger.exception("TrailerHero media listener failed")
+                break
+            client.settimeout(5)
+            if self._stop.is_set():
+                client.close()
+                break
+            if not self._slots.acquire(blocking=False):
+                try:
+                    self._respond(client, 503)
+                except OSError:
+                    pass
+                finally:
+                    try:
+                        client.shutdown(socket.SHUT_RDWR)
+                    except OSError:
+                        pass
+                    client.close()
+                continue
+            worker = threading.Thread(
+                target=self._handle_client, args=(client,),
+                name="TrailerHeroMediaRequest", daemon=True
+            )
+            with self._lock:
+                self._clients.add(client)
+                self._workers.add(worker)
+            try:
+                worker.start()
+            except BaseException:
+                with self._lock:
+                    self._clients.discard(client)
+                    self._workers.discard(worker)
+                client.close()
+                self._slots.release()
+                raise
+
+    def shutdown(self):
+        self._stop.set()
+        self._socket.close()
+        with self._lock:
+            clients = list(self._clients)
+        for client in clients:
+            try:
+                client.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            client.close()
+
+    def server_close(self):
+        self.shutdown()
+        with self._lock:
+            workers = list(self._workers)
+        deadline = time.monotonic() + 2
+        for worker in workers:
+            if worker is not threading.current_thread():
+                worker.join(max(0, deadline - time.monotonic()))
+
+    @staticmethod
+    def _parse_range(header, size):
+        """Return an inclusive range; reject invalid/unsatisfiable requests."""
+        if not header:
+            return 0, size - 1, False
+        match = re.fullmatch(r"bytes=(\d{0,20})-(\d{0,20})", header.strip(), re.IGNORECASE)
+        if not match or not any(match.groups()) or size <= 0:
+            raise ValueError("Invalid byte range")
+        first, last = match.groups()
+        if first:
+            start = int(first)
+            end = min(int(last), size - 1) if last else size - 1
+            if start >= size or end < start:
+                raise ValueError("Unsatisfiable byte range")
+        else:
+            suffix = int(last)
+            if suffix <= 0:
+                raise ValueError("Invalid suffix range")
+            start, end = max(0, size - suffix), size - 1
+        return start, end, True
+
+    def _respond(self, client, status, length=0, extra=None):
+        headers = {
+            "Connection": "close",
+            "Content-Length": str(length),
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "Range",
+            "Access-Control-Expose-Headers": "Accept-Ranges, Content-Length, Content-Range",
+            "Access-Control-Allow-Private-Network": "true",
+            "Cross-Origin-Resource-Policy": "cross-origin",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        }
+        headers.update(extra or {})
+        text = f"HTTP/1.1 {status} {self._REASONS[status]}\r\n"
+        text += "".join(f"{name}: {value}\r\n" for name, value in headers.items()) + "\r\n"
+        client.sendall(text.encode("ascii"))
+
+    def _read_request(self, client):
+        data = bytearray()
+        deadline = time.monotonic() + 5
+        while b"\r\n\r\n" not in data:
+            if len(data) >= self._MAX_HEADERS:
+                self._respond(client, 431)
+                return None
+            client.settimeout(max(0.05, deadline - time.monotonic()))
+            if time.monotonic() >= deadline:
+                return None
+            chunk = client.recv(min(4096, self._MAX_HEADERS - len(data)))
+            if not chunk:
+                return None
+            data.extend(chunk)
+        lines = bytes(data).split(b"\r\n\r\n", 1)[0].decode("iso-8859-1").split("\r\n")
+        request = lines[0].split(" ")
+        if len(request) != 3 or request[2] not in {"HTTP/1.0", "HTTP/1.1"}:
+            raise ValueError("Invalid request line")
+        method, path, version = request
+        if not path.startswith("/") or path.startswith("//") or any(ord(c) < 32 for c in path):
+            raise ValueError("Invalid request target")
+        headers = {}
+        for line in lines[1:]:
+            name, separator, value = line.partition(":")
+            if not separator or not re.fullmatch(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+", name):
+                raise ValueError("Invalid header")
+            name = name.lower()
+            if name in headers:
+                raise ValueError("Duplicate header")
+            headers[name] = value.strip()
+        host = headers.get("host", "").lower()
+        allowed_hosts = {f"127.0.0.1:{self.server_port}", f"localhost:{self.server_port}"}
+        if (version == "HTTP/1.1" and not host) or (host and host not in allowed_hosts):
+            self._respond(client, 403)
+            return None
+        if "transfer-encoding" in headers or headers.get("content-length", "0") != "0":
+            raise ValueError("Request body not supported")
+        client.settimeout(5)
+        return method, path, headers
+
+    def _handle_client(self, client):
+        try:
+            try:
+                request = self._read_request(client)
+            except ValueError:
+                self._respond(client, 400)
+                return
+            if request is None:
+                return
+            method, url, headers = request
+            if method not in {"GET", "HEAD", "OPTIONS"}:
+                self._respond(client, 405, extra={"Allow": "GET, HEAD, OPTIONS"})
+                return
+            parts = urllib.parse.urlsplit(url).path.split("/")
+            if (len(parts) != 5 or parts[0] != "" or
+                    not secrets.compare_digest(parts[1].encode("utf-8"), self.plugin._media_token.encode("ascii")) or
+                    parts[2] not in {"media", "preview"}):
+                self._respond(client, 404)
+                return
+            if method == "OPTIONS":
+                self._respond(client, 204, extra={"Access-Control-Max-Age": "600"})
+                return
+            try:
+                if parts[2] == "media":
+                    path = self.plugin._media_path_for(self.plugin._validate_appid(parts[3]), parts[4])
+                else:
+                    path = self.plugin._preview_media_path(parts[3], parts[4])
+                stream = path.open("rb")
+            except (OSError, TypeError, ValueError):
+                self._respond(client, 404)
+                return
+            with stream:
+                size = os.fstat(stream.fileno()).st_size
+                try:
+                    start, end, partial = self._parse_range(headers.get("range", ""), size)
+                except ValueError:
+                    self._respond(client, 416, extra={"Content-Range": f"bytes */{size}", "Accept-Ranges": "bytes"})
+                    return
+                length = max(0, end - start + 1)
+                extra = {
+                    "Content-Type": self._MIME.get(path.suffix.lower(), "application/octet-stream"),
+                    "Accept-Ranges": "bytes",
+                }
+                if partial:
+                    extra["Content-Range"] = f"bytes {start}-{end}/{size}"
+                self._respond(client, 206 if partial else 200, length, extra)
+                if method == "HEAD":
+                    return
+                stream.seek(start)
+                remaining = length
+                while remaining and not self._stop.is_set():
+                    chunk = stream.read(min(256 * 1024, remaining))
+                    if not chunk:
+                        break
+                    client.sendall(chunk)
+                    remaining -= len(chunk)
+        except (ConnectionError, socket.timeout):
+            # CEF routinely cancels requests on seek, navigation and reload.
+            pass
+        except OSError as error:
+            if not self._stop.is_set() and getattr(error, "winerror", None) not in {64, 109, 995, 10053, 10054}:
+                decky.logger.warning("TrailerHero media I/O ended: %s", error)
+        except Exception:
+            decky.logger.exception("TrailerHero media request failed")
+        finally:
+            try:
+                client.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            client.close()
+            with self._lock:
+                self._clients.discard(client)
+                self._workers.discard(threading.current_thread())
+            self._slots.release()
 
 
 class Plugin:
@@ -59,27 +318,28 @@ class Plugin:
         self._preview_dir = Path(tempfile.gettempdir()) / "TrailerHeroPreview"
         self._preview_lock = threading.RLock()
         self._preview_jobs = {}
+        self._last_debugger_warning = 0.0
+        self._unloading = False
+        self._preview_cancel = threading.Event()
 
     async def _main(self):
+        self._unloading = False
+        self._preview_cancel.clear()
         self._settings_dir.mkdir(parents=True, exist_ok=True)
         self._trailers_dir.mkdir(parents=True, exist_ok=True)
         self._preview_dir.mkdir(parents=True, exist_ok=True)
         self._cleanup_preview_cache()
         self._start_media_server()
-        decky.logger.info("TrailerHero loaded")
+        decky.logger.info("TrailerHero 1.5.1 loaded (self-contained loopback media server)")
 
     async def _unload(self):
+        self._unloading = True
+        self._preview_cancel.set()
         with self._jobs_lock:
             for cancel_event in self._job_cancels.values():
                 cancel_event.set()
-        server = self._media_server
-        self._media_server = None
-        if server:
-            try:
-                server.shutdown()
-                server.server_close()
-            except Exception:
-                decky.logger.exception("TrailerHero media server shutdown failed")
+        # Socket shutdown and thread joins must not block Decky's event loop.
+        await asyncio.to_thread(self._stop_media_server)
         decky.logger.info("TrailerHero unloaded")
 
     async def get_steam_trailer_preview_status(self, preview_id: str) -> dict:
@@ -270,99 +530,29 @@ class Plugin:
     def _start_media_server(self):
         if self._media_server:
             return
-        plugin = self
-
-        class MediaHandler(http.server.BaseHTTPRequestHandler):
-            protocol_version = "HTTP/1.1"
-
-            def do_HEAD(self):
-                self._serve(False)
-
-            def do_GET(self):
-                self._serve(True)
-
-            def do_OPTIONS(self):
-                self.send_response(204)
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
-                self.send_header("Access-Control-Allow-Headers", "Range")
-                self.send_header("Access-Control-Max-Age", "600")
-                self.send_header("Cross-Origin-Resource-Policy", "cross-origin")
-                self.send_header("Content-Length", "0")
-                self.end_headers()
-
-            def _serve(self, include_body: bool):
-                parsed = urllib.parse.urlparse(self.path)
-                parts = [part for part in parsed.path.split("/") if part]
-                if len(parts) != 4 or parts[0] != plugin._media_token or parts[1] not in {"media", "preview"}:
-                    self.send_error(404)
-                    return
-                try:
-                    if parts[1] == "media":
-                        appid = plugin._validate_appid(parts[2])
-                        path = plugin._media_path_for(appid, parts[3])
-                    else:
-                        path = plugin._preview_media_path(parts[2], parts[3])
-                except (TypeError, ValueError, FileNotFoundError):
-                    self.send_error(404)
-                    return
-                size = path.stat().st_size
-                start = 0
-                end = size - 1
-                range_header = self.headers.get("Range", "")
-                if range_header:
-                    match = re.match(r"bytes=(\d*)-(\d*)", range_header)
-                    if not match:
-                        self.send_error(416)
-                        return
-                    if match.group(1):
-                        start = min(int(match.group(1)), max(0, size - 1))
-                    if match.group(2):
-                        end = min(int(match.group(2)), size - 1)
-                    if start > end:
-                        self.send_error(416)
-                        return
-                length = max(0, end - start + 1)
-                self.send_response(206 if range_header else 200)
-                self.send_header("Accept-Ranges", "bytes")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.send_header("Access-Control-Allow-Headers", "Range")
-                self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
-                self.send_header("Access-Control-Expose-Headers", "Accept-Ranges, Content-Length, Content-Range")
-                self.send_header("Cross-Origin-Resource-Policy", "cross-origin")
-                self.send_header("Cache-Control", "no-cache")
-                self.send_header("Content-Type", mimetypes.guess_type(path.name)[0] or "application/octet-stream")
-                self.send_header("Content-Length", str(length))
-                if range_header:
-                    self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
-                self.end_headers()
-                if not include_body:
-                    return
-                try:
-                    with path.open("rb") as stream:
-                        stream.seek(start)
-                        remaining = length
-                        while remaining > 0:
-                            chunk = stream.read(min(1024 * 1024, remaining))
-                            if not chunk:
-                                break
-                            self.wfile.write(chunk)
-                            remaining -= len(chunk)
-                except (BrokenPipeError, ConnectionResetError):
-                    return
-
-            def log_message(self, _format, *_args):
-                return
-
-        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), MediaHandler)
-        server.daemon_threads = True
+        server = _LoopbackMediaServer(self)
         self._media_server = server
         self._media_thread = threading.Thread(
-            target=server.serve_forever,
-            name="TrailerHeroMedia",
-            daemon=True
+            target=server.serve_forever, name="TrailerHeroMedia", daemon=True
         )
-        self._media_thread.start()
+        try:
+            self._media_thread.start()
+        except BaseException:
+            self._media_server = None
+            self._media_thread = None
+            server.server_close()
+            raise
+
+    def _stop_media_server(self):
+        server, thread = self._media_server, self._media_thread
+        self._media_server = None
+        self._media_thread = None
+        if server:
+            server.shutdown()
+        if thread and thread is not threading.current_thread():
+            thread.join(timeout=2)
+        if server:
+            server.server_close()
 
     def _validate_appid(self, value) -> int:
         appid = int(value)
@@ -522,13 +712,15 @@ class Plugin:
             }
 
         def is_current_job() -> bool:
+            if self._unloading:
+                return False
             with self._preview_lock:
                 current_job = self._preview_jobs.get(preview_id) or {}
                 return current_job.get("token") == job_token
 
         def worker():
             errors = []
-            cancel_event = threading.Event()
+            cancel_event = self._preview_cancel
             try:
                 target_dir.mkdir(parents=True, exist_ok=True)
                 for source_index, url in enumerate(sources):
@@ -668,6 +860,7 @@ class Plugin:
                 result["audioUrl"] = f"{base}/audio?v={int(audio_path.stat().st_mtime_ns)}"
                 result["audioBytes"] = audio_path.stat().st_size
         result["mode"] = "local"
+        result["assigned"] = True
         return result
 
     def _get_local_trailer_sync(self, appid: int = 0) -> dict:
@@ -1701,6 +1894,18 @@ try {
     async def eval_in_big_picture(self, code: str) -> dict:
         try:
             return await asyncio.to_thread(self._eval_in_big_picture_sync, code)
+        except (OSError, EOFError, TimeoutError, urllib.error.URLError) as error:
+            # Expected while Steam replaces/restarts its CEF target. The frontend
+            # retries status polling; do not produce a traceback every 2 seconds.
+            now = time.monotonic()
+            if not self._unloading and now - self._last_debugger_warning >= 30:
+                self._last_debugger_warning = now
+                decky.logger.warning("TrailerHero Steam debugger temporarily unavailable: %s", error)
+            return {
+                "status": "Debugger Steam non pronto",
+                "error": str(error),
+                "retryable": True
+            }
         except Exception as error:
             decky.logger.exception("TrailerHero failed to reach Steam Big Picture")
             return {
