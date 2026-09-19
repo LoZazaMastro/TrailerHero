@@ -98,7 +98,7 @@ function menuContext({ available = true } = {}) {
     ...(children.length ? { children: children.length === 1 ? children[0] : children } : {}) } });
   const react = { isValidElement: node => Boolean(node?.type && node?.props), createElement: element,
     cloneElement: (node, props, ...children) => element(node.type, { ...node.props, ...props, key: node.key },
-      ...(children.length ? children : [node.props.children])) };
+      ...(children.length ? children : [Object.hasOwn(props || {}, "children") ? props.children : node.props.children])) };
   const propertyItem = element('MenuItem', { onSelected: function () { navigator.AppProperties(570); } }, 'Properties');
   class NativeMenu {
     constructor(props = { overview: { appid: 570 } }) { this.props = props; }
@@ -119,8 +119,8 @@ function menuContext({ available = true } = {}) {
   const context = vm.createContext({ SP_REACT: react, DFL: dfl, console,
     window: { setInterval: f => { interval = f; return 1; }, clearInterval: () => { interval = undefined; } },
     TRAILERHERO_MENU_KEY: 'trailerhero-game-settings', captureTrailerHeroRouteSnapshot: () => {} });
-  const code = section('function normalizeMenuAppId(', 'function getSteamAppName(') + '\n' +
-    section('function extractContextAppId(', 'var index = definePlugin(');
+  const code = section('function installMenuSectionFallback(', '// TrailerHero 1.5.1') + '\n' + section('function normalizeMenuAppId(', 'function getSteamAppName(') + '\n' +
+    section('function extractContextAppId(', '// Native Steam custom screensaver.');
   vm.runInContext(code, context);
   return { context, NativeMenu, original, dfl, setAvailable: value => { available = value; },
     retry: () => interval?.(), hasRetry: () => Boolean(interval) };
@@ -133,8 +133,10 @@ test('Current Steam context menu structure gains one entry and restores on unloa
   const { context, NativeMenu, original } = menuContext();
   const patch = context.installTrailerHeroContextMenu();
   const result = new NativeMenu().render();
-  assert.equal(result.props.children.filter(x => x.key === 'trailerhero-game-settings').length, 1);
-  assert.equal(result.props.children.length, 3);
+  const section = result.props.children[1].props.children;
+  assert.equal(section.filter(x => x.key === 'trailerhero-game-settings').length, 1);
+  assert.equal(section.at(-1).props.children, 'Properties');
+  assert.equal(result.props.children.length, 2);
   patch.unpatch();
   assert.equal(NativeMenu.prototype.render, original);
 });

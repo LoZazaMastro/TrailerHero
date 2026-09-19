@@ -330,7 +330,8 @@ class Plugin:
         self._preview_dir.mkdir(parents=True, exist_ok=True)
         self._cleanup_preview_cache()
         self._start_media_server()
-        decky.logger.info("TrailerHero 1.5.1 loaded (self-contained loopback media server)")
+        await asyncio.to_thread(self._install_screensaver)
+        decky.logger.info("TrailerHero 1.7.0 loaded (self-contained loopback media server)")
 
     async def _unload(self):
         self._unloading = True
@@ -341,6 +342,89 @@ class Plugin:
         # Socket shutdown and thread joins must not block Decky's event loop.
         await asyncio.to_thread(self._stop_media_server)
         decky.logger.info("TrailerHero unloaded")
+
+    def _install_screensaver(self):
+        roots = []
+        if IS_WINDOWS:
+            try:
+                import winreg
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam") as key:
+                    roots.append(Path(winreg.QueryValueEx(key, "SteamPath")[0]))
+            except (ImportError, OSError):
+                pass
+            roots.append(Path(os.environ.get("PROGRAMFILES(X86)", "C:/Program Files (x86)")) / "Steam")
+        else:
+            roots.extend([Path.home() / ".steam/steam", Path.home() / ".local/share/Steam"])
+        for root in roots:
+            if not (root / "steamui").is_dir():
+                continue
+            target = root / "config/uioverrides/screensavers/trailerhero"
+            try:
+                target.mkdir(parents=True, exist_ok=True)
+                self._screensaver_asset_dir = str(target)
+                for name in ("index.html", "main.js"):
+                    source = self._plugin_dir / "screensaver" / name
+                    temporary = target / (name + ".tmp")
+                    temporary.write_bytes(source.read_bytes())
+                    temporary.replace(target / name)
+                return {"ok": True}
+            except OSError as error:
+                decky.logger.warning(f"TrailerHero screensaver registration failed: {error}")
+                return {"ok": False, "error": str(error)}
+        return {"ok": False, "error": "Steam installation not found"}
+
+    async def install_screensaver(self):
+        return await asyncio.to_thread(self._install_screensaver)
+
+    async def cache_screensaver_asset(self, data: str, appid: int = 0):
+        return await asyncio.to_thread(self._cache_screensaver_asset, data, appid)
+
+    def _cache_screensaver_asset(self, data, appid=0):
+        try:
+            if not isinstance(data, str) or len(data) > 3000000:
+                return {"ok": False}
+            raw = base64.b64decode(data, validate=True)
+            appid = int(appid)
+            if appid:
+                if not 0 < appid < 2**32 or raw[:4] != b"RIFF" or raw[8:12] != b"WEBP" or len(raw) > 500000:
+                    return {"ok": False}
+                name = f"logo-{appid}.webp"
+            else:
+                if raw[:4] not in (b"\x00\x01\x00\x00", b"OTTO", b"wOFF", b"wOF2"):
+                    return {"ok": False}
+                name = "steam-ui-font.ttf"
+            target = getattr(self, "_screensaver_asset_dir", None)
+            if not target:
+                return {"ok": False}
+            destination = os.path.join(target, name)
+            temporary = destination + ".tmp"
+            with open(temporary, "wb") as file:
+                file.write(raw)
+            os.replace(temporary, destination)
+            return {"ok": True, "path": name}
+        except (ValueError, TypeError, OSError):
+            return {"ok": False}
+
+    async def sync_screensaver(self, state: dict):
+        return await asyncio.to_thread(self._sync_screensaver, state)
+
+    def _sync_screensaver(self, state):
+        # Only our dedicated native browser receives data; never evaluate in a game.
+        if not isinstance(state, dict) or len(json.dumps(state)) > 250000:
+            return {"ok": False}
+        with urllib.request.urlopen("http://127.0.0.1:8080/json", timeout=3) as response:
+            targets = json.loads(response.read().decode("utf-8"))
+        target = next((item for item in targets if
+            urlparse(item.get("url", "")).hostname == "uioverride-trailerhero.steamscreensavers.host"
+            and item.get("webSocketDebuggerUrl")), None)
+        if not target:
+            return {"ok": True, "active": False}
+        expression = "window.__trailerHeroScreensaver?.update(" + json.dumps(state) + ")"
+        response = self._websocket_json_request(target["webSocketDebuggerUrl"], {
+            "id": 1, "method": "Runtime.evaluate",
+            "params": {"expression": expression, "returnByValue": True}})
+        return {"ok": True, "active": True,
+                "snapshot": response.get("result", {}).get("result", {}).get("value")}
 
     async def get_steam_trailer_preview_status(self, preview_id: str) -> dict:
         return await asyncio.to_thread(self._get_steam_trailer_preview_status_sync, str(preview_id or ""))

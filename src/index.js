@@ -210,6 +210,7 @@ function FaCheck (props) { return GenIcon({"tag":"svg","attr":{"viewBox":"0 0 51
 const SETTINGS_KEY = "trailerhero.settings.v1";
 const DEFAULT_SETTINGS = {
     settingsVersion: 13,
+    screensaverAudio: false,
     enabled: true,
     delaySeconds: 3,
     opacity: 1,
@@ -247,6 +248,9 @@ const searchYouTubeTrailer = callable("search_youtube_trailer");
 const searchYouTubeVideos = callable("search_youtube_videos");
 const resolveYouTubeStreams = callable("resolve_youtube_streams");
 const getSteamTrailer = callable("get_steam_trailer");
+const installScreensaver = callable("install_screensaver");
+const syncScreensaver = callable("sync_screensaver");
+const cacheScreensaverAsset = callable("cache_screensaver_asset");
 const getLocalTrailer = callable("get_local_trailer");
 const getSteamTrailerPreview = callable("get_steam_trailer_preview");
 const getSteamTrailerPreviewStatus = callable("get_steam_trailer_preview_status");
@@ -274,6 +278,7 @@ function parseSettings() {
         const parsedVersion = typeof parsed.settingsVersion === "number" ? parsed.settingsVersion : 1;
         return {
             settingsVersion: DEFAULT_SETTINGS.settingsVersion,
+            screensaverAudio: parsed.screensaverAudio === true,
             enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : DEFAULT_SETTINGS.enabled,
             delaySeconds: DEFAULT_SETTINGS.delaySeconds,
             opacity: 1,
@@ -1880,7 +1885,7 @@ function isRuntimeSnapshot(value) {
 }
 function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const runtimeKey = "__trailerHeroRuntime";
-    const runtimeVersion = "1.5.2.1";
+    const runtimeVersion = "1.7.0.1";
     const styleId = "trailerhero-style";
     const videoClass = "trailerhero-video";
     const audioClass = "trailerhero-audio";
@@ -3268,6 +3273,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             }, scanQueueDelayMs);
         }
         async scan() {
+            if (window.__trailerHeroScreensaverActive) { this.cleanupVideo(true); return; }
             if (!this.settings.enabled || document.hidden) {
                 return;
             }
@@ -6818,6 +6824,8 @@ function Content() {
                 SP_JSX.jsx(DFL.ToggleField, { label: tr("stopOnLaunch"), bottomSeparator: "none", checked: snapshot.settings.stopOnLaunchEnabled, onChange: (checked) => controller.setStopOnLaunch(checked) }),
                 SP_JSX.jsx(DFL.ToggleField, { label: tr("crtAutomatic"), bottomSeparator: "none", checked: snapshot.settings.crtLowResEnabled, onChange: (checked) => controller.setLowResCrt(checked) })
             ] }),
+            SP_JSX.jsx("div", { className: "thQamHeading", children: "Screensaver" }),
+            SP_JSX.jsx(TrailerHeroScreensaverSettings, {}),
             SP_JSX.jsx("div", { className: "thQamHeading", children: tr("localLibrary") }),
             SP_JSX.jsxs("section", { className: "thQamCard", children: [
                 SP_JSX.jsx(DFL.DropdownItem, { label: tr("qualityPreset", { quality: snapshot.settings.qualityHeight }), bottomSeparator: "none", rgOptions: QUALITY_OPTIONS.map((quality) => ({ data: quality, label: `${quality}p` })), selectedOption: snapshot.settings.qualityHeight, onChange: (option) => controller.updateSettings({ qualityHeight: Number(option.data) }) }),
@@ -7711,8 +7719,150 @@ function installTrailerHeroContextMenu() {
         patch?.unpatch?.();
     } };
 }
+
+// Native Steam custom screensaver. Steam owns idle detection and input dismissal.
+const SCREENSAVER_ID = "TrailerHero";
+function nativeScreensaverModules() {
+    const settings = DFL.findModule(m => m?.rV?.clientSettings && typeof m?.qt === "function" && typeof m?.VI === "function");
+    const service = DFL.findModule(m => typeof m?.b3?.GetActiveState === "function" && typeof m?.b3?.ForceScreensaver === "function")?.b3;
+    return { settings, service };
+}
+function screensaverText(it, en) { return detectLocale().startsWith("it") ? it : en; }
+function TrailerHeroScreensaverSettings() {
+    const [snapshot,setSnapshot] = SP_REACT.useState(controller.getSnapshot());
+    SP_REACT.useEffect(() => controller.subscribe(setSnapshot), []);
+    return SP_JSX.jsx("section", {className:"thQamCard",children:
+        SP_JSX.jsx(DFL.ToggleField,{label:screensaverText("Audio dello screensaver","Screensaver audio"),description:screensaverText("Attiva il suono dei trailer. Disattivalo per riprodurli senza audio.","Enable trailer sound. Turn off for silent playback."),checked:snapshot.settings.screensaverAudio,onChange:checked=>controller.updateSettings({screensaverAudio:checked}),bottomSeparator:"none"})
+    });
+}
+function installTrailerHeroScreensaver() {
+    let restoreNativeLabel=()=>{};
+    let disposed=false,busy=false,loading=false,items=[],queue=[],generation=0,session=false,lastSettings="";
+    const {settings,service}=nativeScreensaverModules();
+    const selectApps=()=>{
+        const store=window.appStore;
+        const apps=[...(store?.m_mapApps?.values?.()||[])].filter(a=>[1,1073741824].includes(a.app_type)&&a.visible_in_game_list!==false&&!controller.settings.blockedApps.includes(a.appid))
+        .map(a=>({id:a.appid,title:a.display_name}));
+        for(let i=apps.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[apps[i],apps[j]]=[apps[j],apps[i]];}
+        return apps;
+    };
+    async function loadOne(token){
+        if(loading||items.length>=20||!queue.length)return;
+        loading=true;
+        try{
+            const app=queue.shift(),s=controller.settings,key=String(app.id),source=s.preferredSources[key]||"auto";
+            let urls=[],audioUrl="",sourceId=s.steamAppOverrides[key]||app.id;
+            const local=await getLocalTrailer(app.id);
+            if((source==="local"||source==="auto")&&local?.videoUrl){urls=[local.videoUrl];audioUrl=local.audioUrl||"";}
+            if(!urls.length&&source!=="local"){
+                const youtube=s.youtubeVideos[key];
+                if(source==="youtube"&&youtube&&s.youtubeEnabled){
+                    const result=await resolveYouTubePreviewDescriptor(youtube,Math.min(1080,s.qualityHeight),app.title,()=>disposed||token!==generation);
+                    urls=getDirectTrailerPreviewCandidates(result?.candidates,result?.url);audioUrl=result?.audioUrl||"";
+                }else if(sourceId<2147483648){
+                    const result=await getSteamStorePreviewFallback(sourceId,s.steamMovieOverrides[key]||"",Math.min(1080,s.qualityHeight));
+                    urls=getDirectTrailerPreviewCandidates(result?.candidates);
+                    if(!urls.length){const fallback=await getSteamTrailer(sourceId,true);urls=getDirectTrailerPreviewCandidates(fallback?.candidates,fallback?.url);}
+                }
+            }
+            if(!disposed&&token===generation&&urls.length){
+                await Promise.race([window.appDetailsStore?.RequestAppDetails?.(app.id),new Promise(resolve=>setTimeout(resolve,4000))]);
+                if(disposed||token!==generation)return;
+                const overview=window.appStore?.m_mapApps?.get(app.id);
+                let logos=[];
+                try{logos=[...(window.appStore?.GetCustomLogoImageURLs?.(overview)||[]),...(window.appDetailsStore?.GetLogoImagesForAppId?.(app.id)?.rgLogoImages||[])];}catch{}
+                logos=logos.filter(url=>typeof url==="string").map(url=>new URL(url,"https://steamloopback.host").href);
+                // Native screensaver origins cannot read Steam's private customimages host.
+                for(const url of logos.filter(url=>new URL(url).hostname==="steamloopback.host")){
+                    try{
+                        const encoded=await new Promise((resolve,reject)=>{
+                            const image=new Image(),timeout=setTimeout(()=>reject(new Error("Logo timeout")),3000);
+                            image.onload=()=>{clearTimeout(timeout);try{const canvas=document.createElement("canvas"),scale=Math.min(1,960/image.naturalWidth,540/image.naturalHeight);canvas.width=Math.round(image.naturalWidth*scale);canvas.height=Math.round(image.naturalHeight*scale);canvas.getContext("2d").drawImage(image,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL("image/webp",.95).split(",")[1]);}catch(error){reject(error);}};
+                            image.onerror=()=>{clearTimeout(timeout);reject(new Error("No custom logo"));};image.src=url;
+                        });
+                        const cached=await cacheScreensaverAsset(encoded,app.id);
+                        if(cached?.ok){logos.unshift(cached.path+"?v="+(overview?.rt_custom_image_mtime||0));break;}
+                    }catch{}
+                }
+                if(sourceId<2147483648)logos.push(`https://cdn.cloudflare.steamstatic.com/steam/apps/${sourceId}/logo.png`);
+                items.push({id:app.id,title:app.title,urls:urls.slice(0,5),audioUrl,logos});
+            }
+        }catch(error){console.debug("TrailerHero screensaver skipped unavailable trailer",error);}
+        finally{loading=false;}
+    }
+    function activity(active){
+        for(const doc of trailerHeroRouteDocuments()){
+            const target=doc.defaultView;if(!target)continue;
+            target.__trailerHeroScreensaverActive=active;
+            if(active)target.__trailerHeroRuntime?.cleanupVideo?.(true);
+            const current=target.__playhubNowPlayingActivity;
+            if(active||current?.source==="trailerhero-screensaver"){
+                const signal={active,status:active?"Playing":"Paused",source:"trailerhero-screensaver",player:"TrailerHero",updatedAt:Date.now()};
+                target.__playhubNowPlayingActivity=signal;
+                target.dispatchEvent(new target.CustomEvent("playhub:now-playing-activity",{detail:signal}));
+            }
+        }
+    }
+    async function tick(){
+        if(disposed||busy||!service||!settings)return;
+        busy=true;
+        try{
+            const selected=settings.rV.clientSettings.screensaver_current_id===SCREENSAVER_ID;
+            const active=selected&&(await service.GetActiveState({})).Body().active();
+            if(!active){if(session){activity(false);generation++;items=[];queue=[];session=false;}return;}
+            activity(true);
+            const signature=JSON.stringify([controller.settings.preferredSources,controller.settings.steamAppOverrides,controller.settings.steamMovieOverrides,controller.settings.youtubeVideos,controller.settings.blockedApps]);
+            if(!session||signature!==lastSettings){generation++;items=[];queue=selectApps();session=true;lastSettings=signature;}
+            void loadOne(generation);
+            let weather=window.__deckyWeatherTopbarState;
+            if(!weather)for(const doc of trailerHeroRouteDocuments()){weather=doc.defaultView?.__deckyWeatherTopbarState;if(weather)break;}
+            let header,clockText,dateText;
+            for(const doc of trailerHeroRouteDocuments()){
+                const clock=doc.querySelector('#header [data-decky-weather-clock], #header [data-playhub-clock-left], #header ._1HhLUvHH6BZLIOyOE80TVh');
+                if(!clock)continue;
+                const style=doc.defaultView.getComputedStyle(clock),rect=clock.getBoundingClientRect();
+                const copy=(element,keys)=>element?Object.fromEntries(keys.map(key=>[key,doc.defaultView.getComputedStyle(element)[key]])):{};
+                const date=doc.getElementById('playhub-topbar-date'),badge=doc.getElementById('decky-weather-topbar-badge');
+                header={style:{fontFamily:style.fontFamily,fontSize:style.fontSize,fontWeight:style.fontWeight,lineHeight:style.lineHeight,letterSpacing:style.letterSpacing,padding:'0px',top:'4vh',left:'4vw'},dateStyle:copy(date,['marginLeft','marginRight','fontSize','fontWeight','lineHeight']),weatherStyle:copy(badge,['marginLeft','gap','fontSize','fontWeight','lineHeight']),iconStyle:copy(badge?.querySelector('.decky-weather-topbar-icon'),['fontSize','width','height','transform'])};
+                clockText=[...clock.childNodes].filter(node=>node.nodeType===3).map(node=>node.textContent).join('').trim();
+                dateText=date?.textContent?.replace(/(^|\s)(\p{L})/gu,(_,space,letter)=>space+letter.toLocaleUpperCase());break;
+            }
+            const result=await syncScreensaver({items,muted:!controller.settings.screensaverAudio,locale:detectLocale(),header,clockText,dateText,loading:queue.length>0||loading,weatherIcon:weather?.enabled?weather.iconText:"",weatherTemp:weather?.enabled?weather.tempText:"",emptyText:screensaverText("Nessun trailer disponibile","No trailers available")});
+            if(result?.snapshot?.failed?.length){const rejected=new Set(result.snapshot.failed);items=items.filter(item=>!rejected.has(item.id));}
+        }catch(error){console.debug("TrailerHero screensaver sync",error);}
+        finally{busy=false;}
+    }
+    // Decorate only React Query's view model, never Steam's protobuf accessors.
+    async function register(){
+        const result=await installScreensaver();if(!result?.ok||disposed)return;
+          try{
+              const response=await fetch("https://steamloopback.host/custom_fonts/clientui.uifont?MotivaSans-Medium");
+              if(response.ok){const bytes=new Uint8Array(await response.arrayBuffer());let binary="";for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));await cacheScreensaverAsset(btoa(binary));}
+          }catch(error){console.debug("Screensaver font",error);}
+
+        let client;
+        DFL.findModule(module=>{try{client=Object.values(module||{}).find(value=>typeof value?.getQueryCache==="function"&&typeof value?.setQueryData==="function");}catch{}return Boolean(client);});
+        if(!client)return;
+        const key=["settings","getscreensavers"];
+        const rename=(from,to)=>{const data=client.getQueryData(key);if(Array.isArray(data)&&data.some(entry=>entry.strID===from))client.setQueryData(key,data.map(entry=>entry.strID===from?{...entry,strID:to}:entry));};
+        const decorate=()=>{
+              const data=client.getQueryData(key);
+              if(Array.isArray(data)&&data.some(entry=>entry.strID==="uioverride-trailerhero"))rename("uioverride-trailerhero",SCREENSAVER_ID);
+              else if(!Array.isArray(data)||!data.some(entry=>entry.strID===SCREENSAVER_ID))client.setQueryData(key,[...(Array.isArray(data)?data:[{strID:"steam-gameslideshow",strURL:"steam-gameslideshow.steamscreensavers.host"},{strID:"steam-bouncinglogo",strURL:"steam-bouncinglogo.steamscreensavers.host"}]),{strID:SCREENSAVER_ID,strURL:"uioverride-trailerhero.steamscreensavers.host"}]);
+          };
+        const unsubscribe=client.getQueryCache().subscribe(event=>{if(JSON.stringify(event?.query?.queryKey)===JSON.stringify(key))decorate();});
+        restoreNativeLabel=()=>{unsubscribe();rename(SCREENSAVER_ID,"uioverride-trailerhero");};
+        decorate();void client.invalidateQueries({queryKey:key});
+        if(settings?.rV.clientSettings.screensaver_current_id==="uioverride-trailerhero")settings.qt("screensaver_current_id",SCREENSAVER_ID);
+    }
+    void register().catch(error=>console.warn("TrailerHero screensaver registration",error));
+    const timer=setInterval(tick,2000);void tick();
+    return()=>{disposed=true;generation++;clearInterval(timer);restoreNativeLabel();activity(false);if(session)void syncScreensaver({items:[],muted:true}).catch(()=>{});};
+}
+
 var index = definePlugin(() => {
     controller.mount();
+    const stopScreensaver = installTrailerHeroScreensaver();
     const contextMenuPatch = installTrailerHeroContextMenu();
     try {
         routerHook?.addRoute?.(TRAILERHERO_ROUTE, GameSettingsRoute, { exact: true });
@@ -7726,6 +7876,7 @@ var index = definePlugin(() => {
         content: SP_JSX.jsx(TrailerHeroSurfaceBoundary, { surface: "QAM", resetKey: "qam", children: SP_JSX.jsx(Content, {}) }),
         icon: SP_JSX.jsx(FaFilm, {}),
         onDismount() {
+            stopScreensaver();
             contextMenuPatch?.unpatch?.();
             try {
                 routerHook?.removeRoute?.(TRAILERHERO_ROUTE);

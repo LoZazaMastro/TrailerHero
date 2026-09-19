@@ -56,7 +56,8 @@ class MediaServerTests(unittest.TestCase):
         decky.DECKY_PLUGIN_SETTINGS_DIR = self.root / "settings"
         self.plugin = backend.Plugin()
         self.plugin._preview_dir = self.root / "previews"
-        asyncio.run(self.plugin._main())
+        with patch.object(self.plugin, "_install_screensaver", return_value={"ok": True}):
+            asyncio.run(self.plugin._main())
         self.payload = b"\x00\x00\x00\x18ftypisom" + bytes(range(256)) * 32
         source = self.root / "original.mp4"
         source.write_bytes(self.payload)
@@ -78,7 +79,12 @@ class MediaServerTests(unittest.TestCase):
             conn.sendall(raw)
             chunks = []
             while True:
-                chunk = conn.recv(65536)
+                try:
+                    chunk = conn.recv(65536)
+                except (ConnectionAbortedError, ConnectionResetError):
+                    if b"\r\n\r\n" in b"".join(chunks):
+                        break
+                    raise
                 if not chunk:
                     break
                 chunks.append(chunk)
@@ -169,7 +175,8 @@ class MediaServerTests(unittest.TestCase):
         asyncio.run(self.plugin._unload())
         self.plugin = backend.Plugin()
         self.plugin._preview_dir = self.root / "previews"
-        asyncio.run(self.plugin._main())
+        with patch.object(self.plugin, "_install_screensaver", return_value={"ok": True}):
+            asyncio.run(self.plugin._main())
         result = self.plugin._get_local_trailer_sync(3456789012)
         self.assertTrue(result["assigned"])
         self.assertNotEqual(first_url, result["videoUrl"])
@@ -193,7 +200,8 @@ class MediaServerTests(unittest.TestCase):
             server = self.plugin._media_server
             while len(server._clients) < 8 and time.monotonic() < deadline:
                 time.sleep(0.01)
-            self.assertEqual(self.request()[0], 503)
+            # Saturation is rejected at accept, before the server reads a request.
+            self.assertEqual(self.request(raw=b"")[0], 503)
             thread = self.plugin._media_thread
             start = time.monotonic()
             asyncio.run(self.plugin._unload())
@@ -243,6 +251,7 @@ with tempfile.TemporaryDirectory() as temp:
     plugin = mod.Plugin()
     plugin._preview_dir = pathlib.Path(temp) / "previews"
     async def run():
+        plugin._install_screensaver = lambda: {"ok": True}
         await plugin._main()
         assert plugin._media_server.server_port > 0
         await plugin._unload()
@@ -270,3 +279,51 @@ print("frozen-startup-ok")
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class ScreensaverTests(unittest.TestCase):
+    def test_registers_only_our_lowercase_native_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            steam = home / ".steam/steam"
+            (steam / "steamui").mkdir(parents=True)
+            other = steam / "config/uioverrides/screensavers/other/index.html"
+            other.parent.mkdir(parents=True)
+            other.write_text("untouched")
+            plugin = backend.Plugin()
+            with patch.object(backend, "IS_WINDOWS", False), patch.object(backend.Path, "home", return_value=home):
+                self.assertTrue(plugin._install_screensaver()["ok"])
+            target = other.parent.parent / "trailerhero"
+            self.assertEqual((target / "main.js").read_bytes(), (ROOT / "screensaver/main.js").read_bytes())
+            self.assertEqual(other.read_text(), "untouched")
+
+    def test_sync_targets_only_our_native_browser(self):
+        import io
+        targets = [
+            {"url": "https://example.com", "webSocketDebuggerUrl": "wrong"},
+            {"url": "https://uioverride-trailerhero.steamscreensavers.host/index.html", "webSocketDebuggerUrl": "right"}]
+        plugin = backend.Plugin()
+        state = {"items": [], "muted": True}
+        with patch.object(backend.urllib.request, "urlopen", return_value=io.BytesIO(json.dumps(targets).encode())), patch.object(plugin, "_websocket_json_request", return_value={}) as request:
+            result = plugin._sync_screensaver(state)
+            self.assertTrue(result["active"])
+            self.assertEqual(request.call_args.args[0], "right")
+            expression = request.call_args.args[1]["params"]["expression"]
+            self.assertIn(json.dumps(state), expression)
+
+class ScreensaverAssetsTests(unittest.TestCase):
+    def test_only_bounded_logo_and_font_files_can_be_cached(self):
+        import base64
+        with tempfile.TemporaryDirectory() as folder:
+            plugin=backend.Plugin()
+            plugin._screensaver_asset_dir=folder
+            webp=base64.b64encode(b"RIFF0000WEBPtest").decode()
+            self.assertTrue(plugin._cache_screensaver_asset(webp,42)["ok"])
+            self.assertEqual((Path(folder)/"logo-42.webp").read_bytes(),b"RIFF0000WEBPtest")
+            for appid in (-1,2**32,"../escape"):
+                self.assertFalse(plugin._cache_screensaver_asset(webp,appid)["ok"])
+            self.assertFalse(plugin._cache_screensaver_asset("broken",42)["ok"])
+            self.assertFalse(plugin._cache_screensaver_asset(webp,0)["ok"])
+            font=base64.b64encode(b"OTTOtest").decode()
+            self.assertTrue(plugin._cache_screensaver_asset(font)["ok"])
+            self.assertTrue((Path(folder)/"steam-ui-font.ttf").exists())

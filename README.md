@@ -37,6 +37,12 @@ Included languages:
 - **Trim start / Trim end** saves per-game video trimming.
 - **Custom YouTube link** lets you save a specific YouTube trailer for one game. If no link is saved, auto-search stays enabled by default, prefers 4K results, and keeps the game title match strict.
 
+## Screensaver
+
+Select **TrailerHero** in Steam's Personalization screensaver selector, then choose the idle delay in Steam. Trailers play in a shuffled order with preloaded crossfades, each game's library logo, and Steam-sized time, date and weather in the upper left. The separate **Screensaver audio** switch in TrailerHero controls sound; it is off by default. Steam handles waking and dismissing the screensaver.
+
+Custom library logos and the Steam UI font are prepared locally from your Steam installation. Weather follows the Weather plugin when available. Unavailable trailers are skipped.
+
 ## Notes
 
 The plugin should work well on Linux, but it was built on and for Windows. Please keep this in mind.
