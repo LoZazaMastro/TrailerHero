@@ -4,7 +4,11 @@
   "flags": [],
   "api_version": 1,
   "publish": {
-    "tags": ["library", "trailer", "visual"],
+    "tags": [
+      "library",
+      "trailer",
+      "visual"
+    ],
     "description": "Fade Steam Big Picture hero art into quiet game trailers.",
     "image": "https://opengraph.githubassets.com/1/SteamDeckHomebrew/PluginLoader"
   }
