@@ -53,6 +53,52 @@ YouTube uses direct max-quality playback resolved with yt-dlp, then falls back t
 
 TrailerHero hides as much embedded-player chrome as possible during fallback, but YouTube can still briefly show its own internal overlay in some cases.
 
+## 1.7.1 — September 22, 2026
+
+Compatibility and playback-recovery patch based on the supplied 1.7.0 release,
+compared with the supplied 1.5.2 project. Existing settings, assigned trailers,
+Steam/YouTube sources, trimming, audio controls and screensaver visuals are retained.
+
+- Optional Python title-matching imports no longer stop the backend from loading.
+  A self-contained sequence-matching fallback preserves title scores when
+  `difflib` is missing. A conservative Latin/full-width normalization fallback
+  also allows startup without `unicodedata`. A full Python runtime keeps its
+  original Unicode normalization behavior. No pip install is required.
+- Core backend startup no longer waits for optional screensaver installation.
+  Frontend screensaver/menu failures cannot abort the main plugin initializer.
+  Screensaver discovery tolerates absent/late Steam modules and throwing exports;
+  it no longer requires the unused `VI` export or a fixed service-export name.
+- Screensaver suspension now uses a short-lived native-state confirmation.
+  Native-state/media-bridge failures, timeouts, dismissal and unload release the
+  game page. Late replies cannot re-enable a dismissed screensaver. Registration
+  leaves Steam's screensaver query data alone until its real list has loaded.
+- Local-library RPC reads are bounded so a lost backend reply cannot permanently
+  block runtime installation or status polling. Failed reads preserve saved local
+  source preferences rather than resetting them.
+
+### Verification scope
+
+`npm test` passes **103 offline automated tests** (65 JavaScript, 38 Python).
+Coverage includes simulated frozen-runtime startup, actual loopback HTTP byte-range
+reads without optional modules, existing route/media regression tests, optional
+Steam API failures/timeouts, late replies, unload cleanup and screensaver recovery.
+The sequence-matching fallback is also compared with Python's standard matcher
+across 609 fixed/generated string pairs inside the test suite.
+
+The five supplied logs all declare **v1.3.0**, not v1.7.0, and stop at the
+`difflib` import. That same hard import exists in both supplied source versions;
+it is not claimed to be a new 1.7.0-only regression. The additional screensaver
+failure paths were identified in the 1.7.0 changes and covered by regression tests.
+No new Steam UI snapshot was supplied for this patch. The final plugin has **not**
+been run end-to-end inside Steam/Decky on an affected user's Windows installation;
+the offline checks do not establish that every reported failure has the same cause.
+
+The Installer and Project packages ship identical runtime files. Windows
+`ffmpeg.exe`, `yt-dlp.exe` and `deno.exe` are byte-for-byte unchanged from 1.7.0.
+Settings and downloaded/imported trailer files are not packaged or migrated.
+After upgrading, restart Steam/Decky to replace the previous backend and injected
+frontend together. No settings reset is part of this update.
+
 ## 1.5.1 — September 18, 2026
 
 Fixes startup on the supplied Windows Decky runtime when `http.server` is missing.

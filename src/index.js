@@ -1885,7 +1885,7 @@ function isRuntimeSnapshot(value) {
 }
 function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const runtimeKey = "__trailerHeroRuntime";
-    const runtimeVersion = "1.7.0.1";
+    const runtimeVersion = "1.7.1.1";
     const styleId = "trailerhero-style";
     const videoClass = "trailerhero-video";
     const audioClass = "trailerhero-audio";
@@ -3273,7 +3273,14 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             }, scanQueueDelayMs);
         }
         async scan() {
-            if (window.__trailerHeroScreensaverActive) { this.cleanupVideo(true); return; }
+            // A failed/unloaded optional screensaver must not suppress game-page
+            // playback forever. Only a recently confirmed native state can pause it.
+            if (window.__trailerHeroScreensaverActive === true &&
+                Number.isFinite(window.__trailerHeroScreensaverExpiresAt) &&
+                Date.now() < window.__trailerHeroScreensaverExpiresAt) {
+                this.cleanupVideo(true);
+                return;
+            }
             if (!this.settings.enabled || document.hidden) {
                 return;
             }
@@ -5118,7 +5125,9 @@ class TrailerHeroController {
     }
     async refreshLocalTrailers() {
         try {
-            const result = await getLocalTrailer(0);
+            // A lost Decky RPC must not hold initial runtime injection or the
+            // status loop forever. Failed reads leave saved assignments intact.
+            const result = await this.withTimeout(getLocalTrailer(0), BACKEND_TIMEOUT_MS);
             if (!result?.ok || !Array.isArray(result.entries)) {
                 throw new Error(result?.error || "TrailerHero local library temporarily unavailable");
             }
@@ -7722,10 +7731,44 @@ function installTrailerHeroContextMenu() {
 
 // Native Steam custom screensaver. Steam owns idle detection and input dismissal.
 const SCREENSAVER_ID = "TrailerHero";
+// Steam's optional exports can be absent, late, or contain throwing getters.
+// None of these cases is an error for ordinary game-page trailer playback.
+function findTrailerHeroOptionalModule(predicate) {
+    try {
+        if (typeof DFL.findModule !== "function") return undefined;
+        return DFL.findModule(module => {
+            try { return Boolean(predicate(module)); }
+            catch { return false; }
+        });
+    } catch { return undefined; }
+}
+function trailerHeroModuleValues(module) {
+    const values = [];
+    try {
+        for (const key of Object.keys(module || {})) {
+            try { values.push(module[key]); } catch { /* Optional/lazy export. */ }
+        }
+    } catch { /* No readable exports on this Steam build. */ }
+    return values;
+}
 function nativeScreensaverModules() {
-    const settings = DFL.findModule(m => m?.rV?.clientSettings && typeof m?.qt === "function" && typeof m?.VI === "function");
-    const service = DFL.findModule(m => typeof m?.b3?.GetActiveState === "function" && typeof m?.b3?.ForceScreensaver === "function")?.b3;
+    // VI is not used by this plugin and must not be an availability requirement.
+    const settings = findTrailerHeroOptionalModule(m => m?.rV?.clientSettings);
+    let service;
+    findTrailerHeroOptionalModule(module => {
+        service = trailerHeroModuleValues(module).find(value => {
+            try { return typeof value?.GetActiveState === "function" && typeof value?.ForceScreensaver === "function"; }
+            catch { return false; }
+        });
+        return Boolean(service);
+    });
     return { settings, service };
+}
+function trailerHeroOptionalCall(action, timeoutMs = 4000) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("Optional screensaver request timed out")), timeoutMs);
+        Promise.resolve().then(action).then(resolve, reject).finally(() => clearTimeout(timer));
+    });
 }
 function screensaverText(it, en) { return detectLocale().startsWith("it") ? it : en; }
 function TrailerHeroScreensaverSettings() {
@@ -7738,7 +7781,14 @@ function TrailerHeroScreensaverSettings() {
 function installTrailerHeroScreensaver() {
     let restoreNativeLabel=()=>{};
     let disposed=false,busy=false,loading=false,items=[],queue=[],generation=0,session=false,lastSettings="";
-    const {settings,service}=nativeScreensaverModules();
+    let settings,service,registered=false,registering=false,retryRegistrationAt=0,lastWarningAt=-Infinity;
+    const touchedWindows=new Set();
+    function warn(error){
+        if(disposed||Date.now()-lastWarningAt<30000)return;
+        lastWarningAt=Date.now();
+        console.warn("TrailerHero optional screensaver",error);
+        try{void Promise.resolve(reportFrontendError("screensaver",String(error?.message||error),String(error?.stack||""))).catch(()=>{});}catch{}
+    }
     const selectApps=()=>{
         const store=window.appStore;
         const apps=[...(store?.m_mapApps?.values?.()||[])].filter(a=>[1,1073741824].includes(a.app_type)&&a.visible_in_game_list!==false&&!controller.settings.blockedApps.includes(a.appid))
@@ -7785,31 +7835,49 @@ function installTrailerHeroScreensaver() {
                     }catch{}
                 }
                 if(sourceId<2147483648)logos.push(`https://cdn.cloudflare.steamstatic.com/steam/apps/${sourceId}/logo.png`);
-                items.push({id:app.id,title:app.title,urls:urls.slice(0,5),audioUrl,logos});
+                if(!disposed&&token===generation)items.push({id:app.id,title:app.title,urls:urls.slice(0,5),audioUrl,logos});
             }
         }catch(error){console.debug("TrailerHero screensaver skipped unavailable trailer",error);}
         finally{loading=false;}
     }
     function activity(active){
-        for(const doc of trailerHeroRouteDocuments()){
-            const target=doc.defaultView;if(!target)continue;
-            target.__trailerHeroScreensaverActive=active;
-            if(active)target.__trailerHeroRuntime?.cleanupVideo?.(true);
-            const current=target.__playhubNowPlayingActivity;
-            if(active||current?.source==="trailerhero-screensaver"){
-                const signal={active,status:active?"Playing":"Paused",source:"trailerhero-screensaver",player:"TrailerHero",updatedAt:Date.now()};
-                target.__playhubNowPlayingActivity=signal;
-                target.dispatchEvent(new target.CustomEvent("playhub:now-playing-activity",{detail:signal}));
-            }
+        if(disposed&&active)return;
+        try{for(const doc of trailerHeroRouteDocuments()){if(doc.defaultView)touchedWindows.add(doc.defaultView);}}catch{}
+        for(const target of touchedWindows){
+            try{
+                if(target.closed){touchedWindows.delete(target);continue;}
+                const wasActive=target.__trailerHeroScreensaverActive===true;
+                target.__trailerHeroScreensaverActive=active;
+                target.__trailerHeroScreensaverExpiresAt=active?Date.now()+8000:0;
+                if(active&&!wasActive){try{target.__trailerHeroRuntime?.cleanupVideo?.(true);}catch{}}
+                if(!active&&wasActive){try{target.__trailerHeroRuntime?.queueScan?.();}catch{}}
+                const current=target.__playhubNowPlayingActivity;
+                if(active||(current?.source==="trailerhero-screensaver"&&(current.active||wasActive))){
+                    const signal={active,status:active?"Playing":"Paused",source:"trailerhero-screensaver",player:"TrailerHero",updatedAt:Date.now()};
+                    target.__playhubNowPlayingActivity=signal;
+                    target.dispatchEvent(new target.CustomEvent("playhub:now-playing-activity",{detail:signal}));
+                }
+            }catch{ /* One closed/inaccessible Steam window must not retain the others. */ }
         }
     }
+    function resetSession(){
+        activity(false);
+        if(session){generation++;items=[];queue=[];session=false;}
+    }
     async function tick(){
-        if(disposed||busy||!service||!settings)return;
+        if(disposed||busy)return;
         busy=true;
         try{
-            const selected=settings.rV.clientSettings.screensaver_current_id===SCREENSAVER_ID;
-            const active=selected&&(await service.GetActiveState({})).Body().active();
-            if(!active){if(session){activity(false);generation++;items=[];queue=[];session=false;}return;}
+            if(!service||!settings){({settings,service}=nativeScreensaverModules());}
+            if(!service||!settings){resetSession();return;}
+            void register();
+            const selected=[SCREENSAVER_ID,"uioverride-trailerhero"].includes(settings.rV.clientSettings.screensaver_current_id);
+            if(!selected){resetSession();return;}
+            const response=await trailerHeroOptionalCall(()=>service.GetActiveState({}),3000);
+            if(disposed)return;
+            const body=typeof response?.Body==="function"?response.Body():response;
+            const value=typeof body?.active==="function"?body.active():body?.active;
+            if(value!==true){resetSession();return;}
             activity(true);
             const signature=JSON.stringify([controller.settings.preferredSources,controller.settings.steamAppOverrides,controller.settings.steamMovieOverrides,controller.settings.youtubeVideos,controller.settings.blockedApps]);
             if(!session||signature!==lastSettings){generation++;items=[];queue=selectApps();session=true;lastSettings=signature;}
@@ -7827,43 +7895,96 @@ function installTrailerHeroScreensaver() {
                 clockText=[...clock.childNodes].filter(node=>node.nodeType===3).map(node=>node.textContent).join('').trim();
                 dateText=date?.textContent?.replace(/(^|\s)(\p{L})/gu,(_,space,letter)=>space+letter.toLocaleUpperCase());break;
             }
-            const result=await syncScreensaver({items,muted:!controller.settings.screensaverAudio,locale:detectLocale(),header,clockText,dateText,loading:queue.length>0||loading,weatherIcon:weather?.enabled?weather.iconText:"",weatherTemp:weather?.enabled?weather.tempText:"",emptyText:screensaverText("Nessun trailer disponibile","No trailers available")});
+            const result=await trailerHeroOptionalCall(()=>syncScreensaver({items,muted:!controller.settings.screensaverAudio,locale:detectLocale(),header,clockText,dateText,loading:queue.length>0||loading,weatherIcon:weather?.enabled?weather.iconText:"",weatherTemp:weather?.enabled?weather.tempText:"",emptyText:screensaverText("Nessun trailer disponibile","No trailers available")}));
+            if(disposed)return;
+            if(result?.ok===false||result?.active===false){resetSession();return;}
             if(result?.snapshot?.failed?.length){const rejected=new Set(result.snapshot.failed);items=items.filter(item=>!rejected.has(item.id));}
-        }catch(error){console.debug("TrailerHero screensaver sync",error);}
+        }catch(error){resetSession();settings=undefined;service=undefined;warn(error);}
         finally{busy=false;}
     }
     // Decorate only React Query's view model, never Steam's protobuf accessors.
+    // Retry late modules without fabricating Steam's list while it is loading.
     async function register(){
-        const result=await installScreensaver();if(!result?.ok||disposed)return;
-          try{
-              const response=await fetch("https://steamloopback.host/custom_fonts/clientui.uifont?MotivaSans-Medium");
-              if(response.ok){const bytes=new Uint8Array(await response.arrayBuffer());let binary="";for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));await cacheScreensaverAsset(btoa(binary));}
-          }catch(error){console.debug("Screensaver font",error);}
-
-        let client;
-        DFL.findModule(module=>{try{client=Object.values(module||{}).find(value=>typeof value?.getQueryCache==="function"&&typeof value?.setQueryData==="function");}catch{}return Boolean(client);});
-        if(!client)return;
-        const key=["settings","getscreensavers"];
-        const rename=(from,to)=>{const data=client.getQueryData(key);if(Array.isArray(data)&&data.some(entry=>entry.strID===from))client.setQueryData(key,data.map(entry=>entry.strID===from?{...entry,strID:to}:entry));};
-        const decorate=()=>{
-              const data=client.getQueryData(key);
-              if(Array.isArray(data)&&data.some(entry=>entry.strID==="uioverride-trailerhero"))rename("uioverride-trailerhero",SCREENSAVER_ID);
-              else if(!Array.isArray(data)||!data.some(entry=>entry.strID===SCREENSAVER_ID))client.setQueryData(key,[...(Array.isArray(data)?data:[{strID:"steam-gameslideshow",strURL:"steam-gameslideshow.steamscreensavers.host"},{strID:"steam-bouncinglogo",strURL:"steam-bouncinglogo.steamscreensavers.host"}]),{strID:SCREENSAVER_ID,strURL:"uioverride-trailerhero.steamscreensavers.host"}]);
-          };
-        const unsubscribe=client.getQueryCache().subscribe(event=>{if(JSON.stringify(event?.query?.queryKey)===JSON.stringify(key))decorate();});
-        restoreNativeLabel=()=>{unsubscribe();rename(SCREENSAVER_ID,"uioverride-trailerhero");};
-        decorate();void client.invalidateQueries({queryKey:key});
-        if(settings?.rV.clientSettings.screensaver_current_id==="uioverride-trailerhero")settings.qt("screensaver_current_id",SCREENSAVER_ID);
+        if(disposed||registered||registering||Date.now()<retryRegistrationAt)return;
+        registering=true;
+        retryRegistrationAt=Date.now()+30000;
+        try{
+            const result=await trailerHeroOptionalCall(()=>installScreensaver(),10000);
+            if(disposed||!result?.ok)return;
+            let client;
+            findTrailerHeroOptionalModule(module=>{
+                client=trailerHeroModuleValues(module).find(value=>{
+                    try{return typeof value?.getQueryCache==="function"&&typeof value?.getQueryData==="function"&&typeof value?.setQueryData==="function";}
+                    catch{return false;}
+                });
+                return Boolean(client);
+            });
+            if(!client)return;
+            const key=["settings","getscreensavers"];
+            let decorating=false;
+            const rename=(from,to)=>{
+                const data=client.getQueryData(key);
+                if(Array.isArray(data)&&data.some(entry=>entry?.strID===from))
+                    client.setQueryData(key,data.map(entry=>entry?.strID===from?{...entry,strID:to}:entry));
+            };
+            const decorate=()=>{
+                if(disposed||decorating)return;
+                decorating=true;
+                try{
+                    const data=client.getQueryData(key);
+                    if(!Array.isArray(data))return;
+                    if(data.some(entry=>entry?.strID==="uioverride-trailerhero"))rename("uioverride-trailerhero",SCREENSAVER_ID);
+                    else if(!data.some(entry=>entry?.strID===SCREENSAVER_ID))
+                        client.setQueryData(key,[...data,{strID:SCREENSAVER_ID,strURL:"uioverride-trailerhero.steamscreensavers.host"}]);
+                }catch(error){warn(error);}
+                finally{decorating=false;}
+            };
+            const cache=client.getQueryCache();
+            if(typeof cache?.subscribe!=="function")return;
+            const unsubscribe=cache.subscribe(event=>{
+                try{if(JSON.stringify(event?.query?.queryKey)===JSON.stringify(key))decorate();}catch(error){warn(error);}
+            });
+            restoreNativeLabel=()=>{try{unsubscribe?.();}finally{rename(SCREENSAVER_ID,"uioverride-trailerhero");}};
+            registered=true;
+            decorate();
+            if(typeof client.invalidateQueries==="function")
+                void trailerHeroOptionalCall(()=>client.invalidateQueries({queryKey:key})).catch(warn);
+            if(settings?.rV?.clientSettings?.screensaver_current_id==="uioverride-trailerhero"&&typeof settings.qt==="function")
+                settings.qt("screensaver_current_id",SCREENSAVER_ID);
+            // Font preparation is cosmetic and cannot hold up registration or playback.
+            void trailerHeroOptionalCall(async()=>{
+                const response=await fetch("https://steamloopback.host/custom_fonts/clientui.uifont?MotivaSans-Medium");
+                if(!response.ok||disposed)return;
+                const bytes=new Uint8Array(await response.arrayBuffer());
+                if(disposed||bytes.length>2000000)return;
+                let binary="";
+                for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
+                if(!disposed)await cacheScreensaverAsset(btoa(binary));
+            }).catch(error=>{if(!disposed)console.debug("TrailerHero screensaver font",error);});
+        }catch(error){warn(error);}
+        finally{registering=false;}
     }
-    void register().catch(error=>console.warn("TrailerHero screensaver registration",error));
+    // Clear stale state left by an older frontend before the first native query.
+    activity(false);
     const timer=setInterval(tick,2000);void tick();
-    return()=>{disposed=true;generation++;clearInterval(timer);restoreNativeLabel();activity(false);if(session)void syncScreensaver({items:[],muted:true}).catch(()=>{});};
+    return()=>{
+        if(disposed)return;
+        disposed=true;generation++;clearInterval(timer);
+        try{restoreNativeLabel();}catch(error){console.debug("TrailerHero screensaver cleanup",error);}
+        finally{activity(false);touchedWindows.clear();}
+        if(session)void trailerHeroOptionalCall(()=>syncScreensaver({items:[],muted:true})).catch(()=>{});
+    };
 }
 
 var index = definePlugin(() => {
     controller.mount();
-    const stopScreensaver = installTrailerHeroScreensaver();
-    const contextMenuPatch = installTrailerHeroContextMenu();
+    // Optional Steam enhancements must never abort the core plugin initializer.
+    let stopScreensaver = () => {};
+    let contextMenuPatch;
+    try { stopScreensaver = installTrailerHeroScreensaver(); }
+    catch (error) { console.warn("TrailerHero optional screensaver startup", error); }
+    try { contextMenuPatch = installTrailerHeroContextMenu(); }
+    catch (error) { console.warn("TrailerHero optional game menu startup", error); }
     try {
         routerHook?.addRoute?.(TRAILERHERO_ROUTE, GameSettingsRoute, { exact: true });
     }
@@ -7876,8 +7997,8 @@ var index = definePlugin(() => {
         content: SP_JSX.jsx(TrailerHeroSurfaceBoundary, { surface: "QAM", resetKey: "qam", children: SP_JSX.jsx(Content, {}) }),
         icon: SP_JSX.jsx(FaFilm, {}),
         onDismount() {
-            stopScreensaver();
-            contextMenuPatch?.unpatch?.();
+            try { stopScreensaver(); } catch (error) { console.debug("TrailerHero screensaver cleanup", error); }
+            try { contextMenuPatch?.unpatch?.(); } catch (error) { console.debug("TrailerHero menu cleanup", error); }
             try {
                 routerHook?.removeRoute?.(TRAILERHERO_ROUTE);
             }

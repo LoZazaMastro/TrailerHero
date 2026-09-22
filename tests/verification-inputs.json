@@ -1,26 +1,38 @@
 {
-  "steam_reference": "steamui - Copia/chunk~2dcc5aaf7.js",
-  "steam_sha256": "7cbf985911163d5436ed45c0ad7602e72343e4cc23b116f2ecbce34a0f8ce967",
-  "static_checks": {
-    "route_root_builder": true,
-    "route_collection_builder": true,
-    "menu_export_wrapper": true,
-    "menu_module_signature": true,
-    "menu_property_action": true,
-    "hero_asset_model": true
+  "release": "1.7.1",
+  "verification_scope": "Offline regression tests; not an end-to-end Steam/Decky Windows test.",
+  "supplied_log_version": "1.3.0",
+  "supplied_log_failure": "ModuleNotFoundError: No module named 'difflib'",
+  "new_steam_ui_snapshot_supplied": false,
+  "tests": {
+    "javascript": 65,
+    "python": 38,
+    "total": 103,
+    "title_similarity_pairs": 609
+  },
+  "inputs": {
+    "TrailerHero-v1.7.0_Project.zip": {
+      "sha256": "9540f64546db44208b0038eb26820ca837de8897625bbd6f505a729db6a9255a"
+    },
+    "TrailerHero-v1.7.0_Installer.zip": {
+      "sha256": "f6aa98d428ef6c2c85e5f79de35536a94257fb868770cce3848b3f23e44cfedd"
+    },
+    "TrailerHero-v1.5.2_Project.zip": {
+      "sha256": "d21242bb5b9d15a11834d85ac4108ba54bda9b139c88e8fcbfaabbef06bad100"
+    }
   },
   "bundled_tools": {
     "ffmpeg.exe": {
       "sha256": "228d7a8556258de907fdb55f36850078ebc7680b84ec30d84ea02e99bec1d1eb",
-      "unchanged": true
+      "unchanged_from_1_7_0": true
     },
     "yt-dlp.exe": {
-      "sha256": "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a",
-      "unchanged": true
+      "sha256": "9c900a6b5d13933b1d31a3a039139a9fa020c7fb0d8edaa049054a802641533d",
+      "unchanged_from_1_7_0": true
     },
     "deno.exe": {
       "sha256": "a8afddac131261dc9e085c6a1a79544f0567bd09e481034b5d1533588cba9b30",
-      "unchanged": true
+      "unchanged_from_1_7_0": true
     }
   }
 }

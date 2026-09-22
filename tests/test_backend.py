@@ -277,9 +277,6 @@ print("frozen-startup-ok")
                 plugin._validate_appid(appid)
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
 
 class ScreensaverTests(unittest.TestCase):
     def test_registers_only_our_lowercase_native_mode(self):
@@ -327,3 +324,139 @@ class ScreensaverAssetsTests(unittest.TestCase):
             font=base64.b64encode(b"OTTOtest").decode()
             self.assertTrue(plugin._cache_screensaver_asset(font)["ok"])
             self.assertTrue((Path(folder)/"steam-ui-font.ttf").exists())
+
+class FrozenCompatibilityTests(unittest.TestCase):
+    def test_missing_optional_modules_do_not_prevent_startup_or_local_playback(self):
+        code = r'''
+import builtins, importlib.util, pathlib, sys, types, asyncio, tempfile, logging, json, socket
+root = pathlib.Path(sys.argv[1])
+blocked = set(json.loads(sys.argv[2]))
+original_import = builtins.__import__
+def guarded(name, *args, **kwargs):
+    if name in blocked:
+        raise ModuleNotFoundError('Simulated frozen runtime: ' + name, name=name)
+    return original_import(name, *args, **kwargs)
+builtins.__import__ = guarded
+with tempfile.TemporaryDirectory() as temp:
+    folder = pathlib.Path(temp)
+    decky = types.ModuleType('decky')
+    decky.DECKY_PLUGIN_DIR = root
+    decky.DECKY_PLUGIN_SETTINGS_DIR = folder / 'settings'
+    decky.logger = logging.getLogger('frozen-regression')
+    sys.modules['decky'] = decky
+    spec = importlib.util.spec_from_file_location('plugin', root / 'main.py')
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert (mod._SequenceMatcher is None) == ('difflib' in blocked)
+    assert (mod._unicodedata is None) == ('unicodedata' in blocked)
+    plugin = mod.Plugin()
+    plugin._preview_dir = folder / 'previews'
+    def broken_screensaver():
+        raise RuntimeError('Optional registration must not run during core startup')
+    plugin._install_screensaver = broken_screensaver
+    async def run():
+        await plugin._main()
+        try:
+            source = folder / 'trailer.mp4'
+            payload = b'\x00\x00\x00\x18ftypisom' + b'local-trailer-test' * 100
+            source.write_bytes(payload)
+            result = plugin._import_local_trailer_sync(3456789012, str(source), 'Local game')
+            assert result['assigned']
+            port = plugin._media_server.server_port
+            path = f'/{plugin._media_token}/media/3456789012/video'
+            def request():
+                with socket.create_connection(('127.0.0.1', port), timeout=2) as connection:
+                    connection.settimeout(2)
+                    connection.sendall(f'GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nRange: bytes=0-11\r\n\r\n'.encode())
+                    chunks = []
+                    while True:
+                        chunk = connection.recv(4096)
+                        if not chunk: break
+                        chunks.append(chunk)
+                    return b''.join(chunks)
+            response = await asyncio.to_thread(request)
+            assert response.startswith(b'HTTP/1.1 206')
+            assert response.split(b'\r\n\r\n', 1)[1] == payload[:12]
+            ranked = plugin._rank_steam_app_candidates('Pokemon IV', [
+                {'appid': 1, 'name': 'Unrelated Game', 'source': 'storesearch'},
+                {'appid': 2, 'name': 'Pokemon 4', 'source': 'storesearch'}])
+            assert ranked[0]['appid'] == 2, ranked
+            assert ranked[0]['ratio'] == 1.0, ranked
+        finally:
+            await plugin._unload()
+        assert plugin._media_server is None
+    asyncio.run(run())
+print('frozen-local-playback-ok')
+'''
+        # Fresh processes: preloaded unittest/difflib cannot hide the fault.
+        for missing in (['difflib'], ['unicodedata'], ['difflib', 'unicodedata', 'http.server', 'socketserver', 'mimetypes']):
+            with self.subTest(missing=missing):
+                result = subprocess.run([sys.executable, '-c', code, str(ROOT), json.dumps(missing)],
+                                        capture_output=True, text=True, timeout=15)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn('frozen-local-playback-ok', result.stdout)
+
+    def test_optional_screensaver_failure_is_a_structured_response(self):
+        plugin = backend.Plugin()
+        with patch.object(plugin, '_install_screensaver', side_effect=RuntimeError('unavailable Steam API')):
+            result = asyncio.run(plugin.install_screensaver())
+        self.assertFalse(result['ok'])
+        self.assertIn('unavailable Steam API', result['error'])
+
+    def test_core_startup_never_waits_for_screensaver_registration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(decky, 'DECKY_PLUGIN_SETTINGS_DIR', Path(directory) / 'settings', create=True):
+                plugin = backend.Plugin()
+            plugin._preview_dir = Path(directory) / 'previews'
+            with patch.object(plugin, '_install_screensaver', side_effect=AssertionError('Not a core dependency')) as optional:
+                asyncio.run(plugin._main())
+                try:
+                    optional.assert_not_called()
+                    self.assertGreater(plugin._media_server.server_port, 0)
+                finally:
+                    asyncio.run(plugin._unload())
+
+
+class TitleFallbackTests(unittest.TestCase):
+    def test_matcher_matches_stdlib_including_ties_and_popular_characters(self):
+        import random
+        from difflib import SequenceMatcher
+        randomizer = random.Random(171)
+        pairs = [('', ''), ('', 'a'), ('a', ''), ('tide', 'diet'), ('diet', 'tide'),
+                 ('batmanarkhamcity', 'batmanarkhamknight'), ('x' + 'a' * 210, 'y' + 'a' * 210),
+                 ('a' * 210 + 'x', 'a' * 210 + 'y'), ('AB' * 200, 'BC' * 200)]
+        for _ in range(600):
+            alphabet = randomizer.choice(['abc ', 'abcdefghijklmnopqrstuvwxyz0123456789 '])
+            a = ''.join(randomizer.choices(alphabet, k=randomizer.randrange(0, 280)))
+            b = ''.join(randomizer.choices(alphabet, k=randomizer.randrange(0, 280)))
+            pairs.append((a, b))
+        for a, b in pairs:
+            with self.subTest(a=a[:30], b=b[:30], lengths=(len(a), len(b))):
+                self.assertEqual(backend._fallback_sequence_ratio(a, b), SequenceMatcher(None, a, b).ratio())
+
+    def test_fallback_keeps_existing_title_rankings_and_acceptance(self):
+        plugin = backend.Plugin()
+        candidates = [{'appid': i + 1, 'name': name, 'source': 'storesearch', 'index': i} for i, name in enumerate([
+            'Doom Eternal', 'DOOM', 'Batman: Arkham City', 'Batman: Arkham Knight',
+            'Baldur’s Gate III', 'Baldurs Gate 3', 'Pokémon IV', 'Pokemon 4',
+            'NieR: Automata', 'NiER Automata Game of the YoRHa Edition', 'Unrelated Game'])]
+        for query in ['Doom Eternal', 'Batman Arkham City', 'Baldurs Gate 3', 'Pokémon IV', 'NieR Automata']:
+            expected = plugin._rank_steam_app_candidates(query, candidates)
+            with patch.object(backend, '_SequenceMatcher', None):
+                actual = plugin._rank_steam_app_candidates(query, candidates)
+            self.assertEqual(actual, expected)
+            self.assertEqual([plugin._is_acceptable_steam_match(query, item) for item in actual],
+                             [plugin._is_acceptable_steam_match(query, item) for item in expected])
+
+    def test_latin_and_fullwidth_normalization_without_unicode_database(self):
+        plugin = backend.Plugin()
+        titles = ['Pokémon IV', 'Pokémon Café', 'Brütal Legend', 'Ōkami HD', 'Crème Brûlée',
+                  'ＦＩＮＡＬ ＦＡＮＴＡＳＹ １４', 'E\u0301lite', 'Æon', 'Game & Games', 'ゲーム 4']
+        for title in titles:
+            expected = (plugin._steam_title_key(title), plugin._steam_title_tokens(title))
+            with patch.object(backend, '_unicodedata', None):
+                self.assertEqual((plugin._steam_title_key(title), plugin._steam_title_tokens(title)), expected)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

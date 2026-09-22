@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import difflib
 import hashlib
 import json
 import os
@@ -14,7 +13,6 @@ import threading
 import time
 import traceback
 import struct
-import unicodedata
 import urllib.request
 import urllib.parse
 import uuid
@@ -25,6 +23,171 @@ import decky
 
 
 IS_WINDOWS = os.name == "nt"
+
+
+# Some frozen Decky distributions omit modules used only for title matching.
+# Never make trailer playback depend on them or on a separate Python install.
+try:
+    from difflib import SequenceMatcher as _SequenceMatcher
+except ImportError:
+    _SequenceMatcher = None
+try:
+    import unicodedata as _unicodedata
+except ImportError:
+    _unicodedata = None
+
+
+def _fallback_sequence_ratio(a: str, b: str) -> float:
+    """SequenceMatcher(None, a, b).ratio() for title strings, without imports.
+
+    Find the longest contiguous match, then compare its disjoint left/right
+    partitions. Preserve the standard matcher tie order and popular-character
+    heuristic so frozen and full Python runtimes rank the same game titles.
+    """
+    if a == b:
+        return 1.0
+    if not a or not b:
+        return 0.0
+    positions = {}
+    for index, char in enumerate(b):
+        positions.setdefault(char, []).append(index)
+    if len(b) >= 200:
+        threshold = len(b) // 100 + 1
+        positions = {char: indices for char, indices in positions.items()
+                     if len(indices) <= threshold}
+    pending = [(0, len(a), 0, len(b))]
+    matched = 0
+    while pending:
+        alo, ahi, blo, bhi = pending.pop()
+        best_a, best_b, best_size = alo, blo, 0
+        previous = {}
+        for i in range(alo, ahi):
+            current = {}
+            for j in positions.get(a[i], ()):
+                if j < blo:
+                    continue
+                if j >= bhi:
+                    break
+                size = previous.get(j - 1, 0) + 1
+                current[j] = size
+                if size > best_size:
+                    best_a, best_b, best_size = i - size + 1, j - size + 1, size
+            previous = current
+        # Popular characters may extend an anchored match, including an empty
+        # match at the partition start (the stdlib's default autojunk behavior).
+        while best_a > alo and best_b > blo and a[best_a - 1] == b[best_b - 1]:
+            best_a -= 1
+            best_b -= 1
+            best_size += 1
+        while (best_a + best_size < ahi and best_b + best_size < bhi
+               and a[best_a + best_size] == b[best_b + best_size]):
+            best_size += 1
+        if best_size:
+            matched += best_size
+            if alo < best_a and blo < best_b:
+                pending.append((alo, best_a, blo, best_b))
+            if best_a + best_size < ahi and best_b + best_size < bhi:
+                pending.append((best_a + best_size, ahi, best_b + best_size, bhi))
+    return 2.0 * matched / (len(a) + len(b))
+
+
+def _title_similarity(a: str, b: str) -> float:
+    if _SequenceMatcher is not None:
+        return _SequenceMatcher(None, a, b).ratio()
+    return _fallback_sequence_ratio(a, b)
+
+
+# Minimal Latin/full-width fold for runtimes that omit the Unicode database.
+# Full runtimes keep the original NFKD behavior; no third-party module is used.
+_TITLE_ASCII_FOLD = str.maketrans({
+    " ": " ", "¨": " ", "ª": "a", "¯": " ", "²": "2", "³": "3", "´": " ", "¸": " ",
+    "¹": "1", "º": "o", "À": "A", "Á": "A", "Â": "A", "Ã": "A", "Ä": "A", "Å": "A",
+    "Ç": "C", "È": "E", "É": "E", "Ê": "E", "Ë": "E", "Ì": "I", "Í": "I", "Î": "I",
+    "Ï": "I", "Ñ": "N", "Ò": "O", "Ó": "O", "Ô": "O", "Õ": "O", "Ö": "O", "Ù": "U",
+    "Ú": "U", "Û": "U", "Ü": "U", "Ý": "Y", "à": "a", "á": "a", "â": "a", "ã": "a",
+    "ä": "a", "å": "a", "ç": "c", "è": "e", "é": "e", "ê": "e", "ë": "e", "ì": "i",
+    "í": "i", "î": "i", "ï": "i", "ñ": "n", "ò": "o", "ó": "o", "ô": "o", "õ": "o",
+    "ö": "o", "ù": "u", "ú": "u", "û": "u", "ü": "u", "ý": "y", "ÿ": "y", "Ā": "A",
+    "ā": "a", "Ă": "A", "ă": "a", "Ą": "A", "ą": "a", "Ć": "C", "ć": "c", "Ĉ": "C",
+    "ĉ": "c", "Ċ": "C", "ċ": "c", "Č": "C", "č": "c", "Ď": "D", "ď": "d", "Ē": "E",
+    "ē": "e", "Ĕ": "E", "ĕ": "e", "Ė": "E", "ė": "e", "Ę": "E", "ę": "e", "Ě": "E",
+    "ě": "e", "Ĝ": "G", "ĝ": "g", "Ğ": "G", "ğ": "g", "Ġ": "G", "ġ": "g", "Ģ": "G",
+    "ģ": "g", "Ĥ": "H", "ĥ": "h", "Ĩ": "I", "ĩ": "i", "Ī": "I", "ī": "i", "Ĭ": "I",
+    "ĭ": "i", "Į": "I", "į": "i", "İ": "I", "Ĳ": "IJ", "ĳ": "ij", "Ĵ": "J", "ĵ": "j",
+    "Ķ": "K", "ķ": "k", "Ĺ": "L", "ĺ": "l", "Ļ": "L", "ļ": "l", "Ľ": "L", "ľ": "l",
+    "Ń": "N", "ń": "n", "Ņ": "N", "ņ": "n", "Ň": "N", "ň": "n", "Ō": "O", "ō": "o",
+    "Ŏ": "O", "ŏ": "o", "Ő": "O", "ő": "o", "Ŕ": "R", "ŕ": "r", "Ŗ": "R", "ŗ": "r",
+    "Ř": "R", "ř": "r", "Ś": "S", "ś": "s", "Ŝ": "S", "ŝ": "s", "Ş": "S", "ş": "s",
+    "Š": "S", "š": "s", "Ţ": "T", "ţ": "t", "Ť": "T", "ť": "t", "Ũ": "U", "ũ": "u",
+    "Ū": "U", "ū": "u", "Ŭ": "U", "ŭ": "u", "Ů": "U", "ů": "u", "Ű": "U", "ű": "u",
+    "Ų": "U", "ų": "u", "Ŵ": "W", "ŵ": "w", "Ŷ": "Y", "ŷ": "y", "Ÿ": "Y", "Ź": "Z",
+    "ź": "z", "Ż": "Z", "ż": "z", "Ž": "Z", "ž": "z", "ſ": "s", "Ơ": "O", "ơ": "o",
+    "Ư": "U", "ư": "u", "Ǆ": "DZ", "ǅ": "Dz", "ǆ": "dz", "Ǉ": "LJ", "ǈ": "Lj", "ǉ": "lj",
+    "Ǌ": "NJ", "ǋ": "Nj", "ǌ": "nj", "Ǎ": "A", "ǎ": "a", "Ǐ": "I", "ǐ": "i", "Ǒ": "O",
+    "ǒ": "o", "Ǔ": "U", "ǔ": "u", "Ǖ": "U", "ǖ": "u", "Ǘ": "U", "ǘ": "u", "Ǚ": "U",
+    "ǚ": "u", "Ǜ": "U", "ǜ": "u", "Ǟ": "A", "ǟ": "a", "Ǡ": "A", "ǡ": "a", "Ǧ": "G",
+    "ǧ": "g", "Ǩ": "K", "ǩ": "k", "Ǫ": "O", "ǫ": "o", "Ǭ": "O", "ǭ": "o", "ǰ": "j",
+    "Ǳ": "DZ", "ǲ": "Dz", "ǳ": "dz", "Ǵ": "G", "ǵ": "g", "Ǹ": "N", "ǹ": "n", "Ǻ": "A",
+    "ǻ": "a", "Ȁ": "A", "ȁ": "a", "Ȃ": "A", "ȃ": "a", "Ȅ": "E", "ȅ": "e", "Ȇ": "E",
+    "ȇ": "e", "Ȉ": "I", "ȉ": "i", "Ȋ": "I", "ȋ": "i", "Ȍ": "O", "ȍ": "o", "Ȏ": "O",
+    "ȏ": "o", "Ȑ": "R", "ȑ": "r", "Ȓ": "R", "ȓ": "r", "Ȕ": "U", "ȕ": "u", "Ȗ": "U",
+    "ȗ": "u", "Ș": "S", "ș": "s", "Ț": "T", "ț": "t", "Ȟ": "H", "ȟ": "h", "Ȧ": "A",
+    "ȧ": "a", "Ȩ": "E", "ȩ": "e", "Ȫ": "O", "ȫ": "o", "Ȭ": "O", "ȭ": "o", "Ȯ": "O",
+    "ȯ": "o", "Ȱ": "O", "ȱ": "o", "Ȳ": "Y", "ȳ": "y", "ʰ": "h", "ʲ": "j", "ʳ": "r",
+    "ʷ": "w", "ʸ": "y", "˘": " ", "˙": " ", "˚": " ", "˛": " ", "˜": " ", "˝": " ",
+    "ˡ": "l", "ˢ": "s", "ˣ": "x", "Ḁ": "A", "ḁ": "a", "Ḃ": "B", "ḃ": "b", "Ḅ": "B",
+    "ḅ": "b", "Ḇ": "B", "ḇ": "b", "Ḉ": "C", "ḉ": "c", "Ḋ": "D", "ḋ": "d", "Ḍ": "D",
+    "ḍ": "d", "Ḏ": "D", "ḏ": "d", "Ḑ": "D", "ḑ": "d", "Ḓ": "D", "ḓ": "d", "Ḕ": "E",
+    "ḕ": "e", "Ḗ": "E", "ḗ": "e", "Ḙ": "E", "ḙ": "e", "Ḛ": "E", "ḛ": "e", "Ḝ": "E",
+    "ḝ": "e", "Ḟ": "F", "ḟ": "f", "Ḡ": "G", "ḡ": "g", "Ḣ": "H", "ḣ": "h", "Ḥ": "H",
+    "ḥ": "h", "Ḧ": "H", "ḧ": "h", "Ḩ": "H", "ḩ": "h", "Ḫ": "H", "ḫ": "h", "Ḭ": "I",
+    "ḭ": "i", "Ḯ": "I", "ḯ": "i", "Ḱ": "K", "ḱ": "k", "Ḳ": "K", "ḳ": "k", "Ḵ": "K",
+    "ḵ": "k", "Ḷ": "L", "ḷ": "l", "Ḹ": "L", "ḹ": "l", "Ḻ": "L", "ḻ": "l", "Ḽ": "L",
+    "ḽ": "l", "Ḿ": "M", "ḿ": "m", "Ṁ": "M", "ṁ": "m", "Ṃ": "M", "ṃ": "m", "Ṅ": "N",
+    "ṅ": "n", "Ṇ": "N", "ṇ": "n", "Ṉ": "N", "ṉ": "n", "Ṋ": "N", "ṋ": "n", "Ṍ": "O",
+    "ṍ": "o", "Ṏ": "O", "ṏ": "o", "Ṑ": "O", "ṑ": "o", "Ṓ": "O", "ṓ": "o", "Ṕ": "P",
+    "ṕ": "p", "Ṗ": "P", "ṗ": "p", "Ṙ": "R", "ṙ": "r", "Ṛ": "R", "ṛ": "r", "Ṝ": "R",
+    "ṝ": "r", "Ṟ": "R", "ṟ": "r", "Ṡ": "S", "ṡ": "s", "Ṣ": "S", "ṣ": "s", "Ṥ": "S",
+    "ṥ": "s", "Ṧ": "S", "ṧ": "s", "Ṩ": "S", "ṩ": "s", "Ṫ": "T", "ṫ": "t", "Ṭ": "T",
+    "ṭ": "t", "Ṯ": "T", "ṯ": "t", "Ṱ": "T", "ṱ": "t", "Ṳ": "U", "ṳ": "u", "Ṵ": "U",
+    "ṵ": "u", "Ṷ": "U", "ṷ": "u", "Ṹ": "U", "ṹ": "u", "Ṻ": "U", "ṻ": "u", "Ṽ": "V",
+    "ṽ": "v", "Ṿ": "V", "ṿ": "v", "Ẁ": "W", "ẁ": "w", "Ẃ": "W", "ẃ": "w", "Ẅ": "W",
+    "ẅ": "w", "Ẇ": "W", "ẇ": "w", "Ẉ": "W", "ẉ": "w", "Ẋ": "X", "ẋ": "x", "Ẍ": "X",
+    "ẍ": "x", "Ẏ": "Y", "ẏ": "y", "Ẑ": "Z", "ẑ": "z", "Ẓ": "Z", "ẓ": "z", "Ẕ": "Z",
+    "ẕ": "z", "ẖ": "h", "ẗ": "t", "ẘ": "w", "ẙ": "y", "ẛ": "s", "Ạ": "A", "ạ": "a",
+    "Ả": "A", "ả": "a", "Ấ": "A", "ấ": "a", "Ầ": "A", "ầ": "a", "Ẩ": "A", "ẩ": "a",
+    "Ẫ": "A", "ẫ": "a", "Ậ": "A", "ậ": "a", "Ắ": "A", "ắ": "a", "Ằ": "A", "ằ": "a",
+    "Ẳ": "A", "ẳ": "a", "Ẵ": "A", "ẵ": "a", "Ặ": "A", "ặ": "a", "Ẹ": "E", "ẹ": "e",
+    "Ẻ": "E", "ẻ": "e", "Ẽ": "E", "ẽ": "e", "Ế": "E", "ế": "e", "Ề": "E", "ề": "e",
+    "Ể": "E", "ể": "e", "Ễ": "E", "ễ": "e", "Ệ": "E", "ệ": "e", "Ỉ": "I", "ỉ": "i",
+    "Ị": "I", "ị": "i", "Ọ": "O", "ọ": "o", "Ỏ": "O", "ỏ": "o", "Ố": "O", "ố": "o",
+    "Ồ": "O", "ồ": "o", "Ổ": "O", "ổ": "o", "Ỗ": "O", "ỗ": "o", "Ộ": "O", "ộ": "o",
+    "Ớ": "O", "ớ": "o", "Ờ": "O", "ờ": "o", "Ở": "O", "ở": "o", "Ỡ": "O", "ỡ": "o",
+    "Ợ": "O", "ợ": "o", "Ụ": "U", "ụ": "u", "Ủ": "U", "ủ": "u", "Ứ": "U", "ứ": "u",
+    "Ừ": "U", "ừ": "u", "Ử": "U", "ử": "u", "Ữ": "U", "ữ": "u", "Ự": "U", "ự": "u",
+    "Ỳ": "Y", "ỳ": "y", "Ỵ": "Y", "ỵ": "y", "Ỷ": "Y", "ỷ": "y", "Ỹ": "Y", "ỹ": "y",
+    "！": "!", "＂": "\"", "＃": "#", "＄": "$", "％": "%", "＆": "&", "＇": "'", "（": "(",
+    "）": ")", "＊": "*", "＋": "+", "，": ",", "－": "-", "．": ".", "／": "/", "０": "0",
+    "１": "1", "２": "2", "３": "3", "４": "4", "５": "5", "６": "6", "７": "7", "８": "8",
+    "９": "9", "：": ":", "；": ";", "＜": "<", "＝": "=", "＞": ">", "？": "?", "＠": "@",
+    "Ａ": "A", "Ｂ": "B", "Ｃ": "C", "Ｄ": "D", "Ｅ": "E", "Ｆ": "F", "Ｇ": "G", "Ｈ": "H",
+    "Ｉ": "I", "Ｊ": "J", "Ｋ": "K", "Ｌ": "L", "Ｍ": "M", "Ｎ": "N", "Ｏ": "O", "Ｐ": "P",
+    "Ｑ": "Q", "Ｒ": "R", "Ｓ": "S", "Ｔ": "T", "Ｕ": "U", "Ｖ": "V", "Ｗ": "W", "Ｘ": "X",
+    "Ｙ": "Y", "Ｚ": "Z", "［": "[", "＼": "\\", "］": "]", "＾": "^", "＿": "_", "｀": "`",
+    "ａ": "a", "ｂ": "b", "ｃ": "c", "ｄ": "d", "ｅ": "e", "ｆ": "f", "ｇ": "g", "ｈ": "h",
+    "ｉ": "i", "ｊ": "j", "ｋ": "k", "ｌ": "l", "ｍ": "m", "ｎ": "n", "ｏ": "o", "ｐ": "p",
+    "ｑ": "q", "ｒ": "r", "ｓ": "s", "ｔ": "t", "ｕ": "u", "ｖ": "v", "ｗ": "w", "ｘ": "x",
+    "ｙ": "y", "ｚ": "z", "｛": "{", "｜": "|", "｝": "}", "～": "~",
+})
+
+
+def _fold_steam_title(value: str) -> str:
+    text = str(value or "")
+    if _unicodedata is not None:
+        return "".join(char for char in _unicodedata.normalize("NFKD", text)
+                       if not _unicodedata.combining(char))
+    text = text.translate(_TITLE_ASCII_FOLD)
+    return re.sub(r"[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]", "", text)
 
 
 class _LoopbackMediaServer:
@@ -330,8 +493,11 @@ class Plugin:
         self._preview_dir.mkdir(parents=True, exist_ok=True)
         self._cleanup_preview_cache()
         self._start_media_server()
-        await asyncio.to_thread(self._install_screensaver)
-        decky.logger.info("TrailerHero 1.7.0 loaded (self-contained loopback media server)")
+        # The optional screensaver is registered by the frontend only when its
+        # Steam APIs are available. It must never gate core backend startup.
+        decky.logger.info("TrailerHero 1.7.1 loaded (self-contained loopback media server)")
+        if _SequenceMatcher is None or _unicodedata is None:
+            decky.logger.info("TrailerHero title matching is using bundled compatibility fallbacks")
 
     async def _unload(self):
         self._unloading = True
@@ -374,7 +540,11 @@ class Plugin:
         return {"ok": False, "error": "Steam installation not found"}
 
     async def install_screensaver(self):
-        return await asyncio.to_thread(self._install_screensaver)
+        try:
+            return await asyncio.to_thread(self._install_screensaver)
+        except Exception as error:
+            decky.logger.warning("TrailerHero optional screensaver unavailable: %s", error)
+            return {"ok": False, "error": str(error)}
 
     async def cache_screensaver_asset(self, data: str, appid: int = 0):
         return await asyncio.to_thread(self._cache_screensaver_asset, data, appid)
@@ -2210,8 +2380,7 @@ try {
         return text.strip()
 
     def _steam_title_key(self, value: str) -> str:
-        text = unicodedata.normalize("NFKD", str(value or ""))
-        text = "".join(ch for ch in text if not unicodedata.combining(ch))
+        text = _fold_steam_title(value)
         text = text.lower().replace("&", " and ")
         text = re.sub(r"[^a-z0-9]+", " ", text)
         roman = {
@@ -2230,8 +2399,7 @@ try {
         return "".join(tokens)
 
     def _steam_title_tokens(self, value: str) -> set:
-        text = unicodedata.normalize("NFKD", str(value or ""))
-        text = "".join(ch for ch in text if not unicodedata.combining(ch))
+        text = _fold_steam_title(value)
         text = text.lower().replace("&", " and ")
         text = re.sub(r"[^a-z0-9]+", " ", text)
         roman = {
@@ -2359,7 +2527,7 @@ try {
 
             name_key = self._steam_title_key(name)
             name_tokens = self._steam_title_tokens(name)
-            ratio = difflib.SequenceMatcher(None, query_key, name_key).ratio() if query_key and name_key else 0
+            ratio = _title_similarity(query_key, name_key) if query_key and name_key else 0
             overlap = len(query_tokens & name_tokens)
             coverage = overlap / max(1, len(query_tokens))
             precision = overlap / max(1, len(name_tokens))

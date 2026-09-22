@@ -182,7 +182,7 @@ function controllerContext(reply) {
   const controller = new context.Controller();
   controller.mounted = true;
   controller.runInSteamTab = async () => undefined;
-  return { controller, counts: () => ({ calls, installs, saves }) };
+  return { controller, context, counts: () => ({ calls, installs, saves }) };
 }
 test('Local assignments without old assigned field are preserved', async () => {
   const h = controllerContext({ ok: true, entries: [{ appid: 3456789012, videoUrl: 'http://127.0.0.1:1/video' }] });
@@ -216,4 +216,31 @@ test('Unmount prevents late library completion from changing or reinstalling run
 });
 test('Source and shipped bundle are synchronized', () => {
   assert.equal(fs.readFileSync(new URL('../dist/index.js', import.meta.url), 'utf8'), source);
+});
+
+
+test('A stalled local-library RPC times out without erasing sources or applying a late reply', async () => {
+  let resolve;
+  const h = controllerContext(() => new Promise(done => { resolve = done; }));
+  h.context.window.setTimeout = callback => setTimeout(callback, 0);
+  const result = await h.controller.refreshLocalTrailers();
+  assert.equal(result.ok, false);
+  assert.equal(h.controller.settings.preferredSources['3456789012'], 'local');
+  assert.equal(h.counts().saves, 0);
+  resolve({ ok: true, entries: [] });
+  await new Promise(done => setImmediate(done));
+  assert.equal(h.controller.settings.preferredSources['3456789012'], 'local');
+  assert.equal(h.counts().saves, 0);
+});
+
+test('A stalled initial library read no longer prevents runtime installation', async () => {
+  const h = controllerContext(() => new Promise(() => {}));
+  h.context.window.setTimeout = callback => setTimeout(callback, 0);
+  h.controller.mounted = false;
+  h.controller.mount();
+  try {
+    await new Promise(done => setTimeout(done, 20));
+    assert.equal(h.counts().installs, 1);
+    assert.equal(h.controller.settings.preferredSources['3456789012'], 'local');
+  } finally { h.controller.unmount(); }
 });
