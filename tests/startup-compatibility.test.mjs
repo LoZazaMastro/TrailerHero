@@ -221,7 +221,10 @@ test('Failed optional installation is retried without interrupting core playback
 
 test('Initializer and cleanup remain usable when optional enhancements throw', () => {
   let mounts = 0, unmounts = 0, routes = 0;
+  const listeners = new Map();
   const context = vm.createContext({
+    window: { addEventListener(type, listener) { listeners.set(type, listener); },
+      removeEventListener(type) { listeners.delete(type); } },
     definePlugin: fn => fn(), controller: { mount() { mounts++; }, unmount() { unmounts++; } },
     installTrailerHeroScreensaver() { throw new Error('unsupported Steam screensaver'); },
     installTrailerHeroContextMenu() { throw new Error('unsupported menu module'); },
@@ -231,14 +234,16 @@ test('Initializer and cleanup remain usable when optional enhancements throw', (
     DFL: { staticClasses: { Title: 'Title' } }, FaFilm() {}, Content() {}, TrailerHeroSurfaceBoundary() {},
     console: { warn() {}, debug() {} }, tr: key => key,
   });
-  const init = source.slice(source.indexOf('var index = definePlugin('), source.indexOf('export { index as default }'));
+  const init = source.slice(source.indexOf('function installPlayhubTrailerSelection('), source.indexOf('export { index as default }'));
   vm.runInContext(init, context);
   assert.equal(mounts, 1);
   assert.ok(context.index.content);
   assert.equal(routes, 1);
+  assert.equal(listeners.size, 1);
   context.index.onDismount();
   assert.equal(unmounts, 1);
   assert.equal(routes, 0);
+  assert.equal(listeners.size, 0);
 });
 
 test('Runtime ignores expired and legacy screensaver flags, but respects a fresh native lease', async () => {

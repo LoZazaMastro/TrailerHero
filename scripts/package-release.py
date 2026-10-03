@@ -16,6 +16,7 @@ INSTALLER_FILES = {
     "plugin.json", "package.json", ".playhub-release.json", "main.py",
     "dist/index.js", "ffmpeg.exe", "yt-dlp.exe", "deno.exe", "LICENSE",
     "README.md", "screensaver/index.html", "screensaver/main.js",
+    "CHANGELOG_1.7.2.md",
 }
 
 
@@ -23,7 +24,7 @@ def should_include(path: Path, *, installer: bool = False) -> bool:
     relative = path.relative_to(ROOT)
     if set(relative.parts) & EXCLUDED_DIRS or path.suffix.lower() in EXCLUDED_SUFFIXES:
         return False
-    if any(word in relative.name.lower() for word in ("changelog", "handover", "internal", "source_recovery")):
+    if relative.as_posix() != "CHANGELOG_1.7.2.md" and any(word in relative.name.lower() for word in ("changelog", "handover", "internal", "source_recovery")):
         return False
     return not installer or relative.as_posix() in INSTALLER_FILES
 
@@ -53,6 +54,7 @@ def write_archive(output: Path, *, installer: bool, base: Path | None = None) ->
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", type=Path, default=ROOT.parent)
+    parser.add_argument("--installer-only", action="store_true")
     args = parser.parse_args()
     subprocess.run(["node", str(ROOT / "scripts/build-frontend.mjs")], check=True)
     ast.parse((ROOT / "main.py").read_text(encoding="utf-8"), feature_version=(3, 10))
@@ -60,7 +62,8 @@ def main() -> None:
     version = str(package["version"])
     args.output_dir.mkdir(parents=True, exist_ok=True)
     installer_output = args.output_dir / f"TrailerHero-v{version}_Installer.zip"
-    for installer, kind in [(True, "Installer"), (False, "Project")]:
+    archives = [(True, "Installer")] if args.installer_only else [(True, "Installer"), (False, "Project")]
+    for installer, kind in archives:
         output = args.output_dir / f"TrailerHero-v{version}_{kind}.zip"
         write_archive(output, installer=installer, base=None if installer else installer_output)
         print(output, flush=True)

@@ -495,7 +495,7 @@ class Plugin:
         self._start_media_server()
         # The optional screensaver is registered by the frontend only when its
         # Steam APIs are available. It must never gate core backend startup.
-        decky.logger.info("TrailerHero 1.7.1 loaded (self-contained loopback media server)")
+        decky.logger.info("TrailerHero 1.7.2 loaded (self-contained loopback media server)")
         if _SequenceMatcher is None or _unicodedata is None:
             decky.logger.info("TrailerHero title matching is using bundled compatibility fallbacks")
 

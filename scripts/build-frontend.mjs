@@ -10,7 +10,8 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
 const release = JSON.parse(fs.readFileSync(path.join(root, '.playhub-release.json'), 'utf8'));
 if (pkg.version !== release.version) throw new Error('Release version mismatch');
 const code = fs.readFileSync(source, 'utf8');
-if (!code.includes(`const runtimeVersion = "${pkg.version}.1";`)) {
+if (!Number.isInteger(release.runtimeRevision) || release.runtimeRevision < 1 ||
+    !code.includes(`const runtimeVersion = "${pkg.version}.${release.runtimeRevision}";`)) {
   throw new Error('Runtime revision does not match the release version');
 }
 execFileSync(process.execPath, ['--check', source], { stdio: 'inherit' });

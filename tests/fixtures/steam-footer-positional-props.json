@@ -1,0 +1,77 @@
+[
+  {
+    "src": "/steaminputglyphs/xbox_button_logo.svg",
+    "props": [
+      {
+        "depth": 1,
+        "button": 8
+      },
+      {
+        "depth": 2,
+        "button": 8
+      },
+      {
+        "depth": 5,
+        "rgButtons": [
+          8
+        ]
+      },
+      {
+        "depth": 6,
+        "rgButtons": [
+          8
+        ]
+      }
+    ]
+  },
+  {
+    "src": "/steaminputglyphs/shared_buttons_s.svg",
+    "props": [
+      {
+        "depth": 2,
+        "button": 0
+      },
+      {
+        "depth": 3,
+        "button": 0
+      },
+      {
+        "depth": 6,
+        "rgButtons": [
+          0
+        ]
+      },
+      {
+        "depth": 7,
+        "rgButtons": [
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "src": "/steaminputglyphs/shared_buttons_e.svg",
+    "props": [
+      {
+        "depth": 2,
+        "button": 1
+      },
+      {
+        "depth": 3,
+        "button": 1
+      },
+      {
+        "depth": 6,
+        "rgButtons": [
+          1
+        ]
+      },
+      {
+        "depth": 7,
+        "rgButtons": [
+          1
+        ]
+      }
+    ]
+  }
+]

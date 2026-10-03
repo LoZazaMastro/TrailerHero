@@ -365,8 +365,11 @@ with tempfile.TemporaryDirectory() as temp:
             port = plugin._media_server.server_port
             path = f'/{plugin._media_token}/media/3456789012/video'
             def request():
-                with socket.create_connection(('127.0.0.1', port), timeout=2) as connection:
+                # Numeric IPv4 avoids the client's unrelated IDNA codec, which
+                # imports the deliberately blocked optional unicodedata module.
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connection:
                     connection.settimeout(2)
+                    connection.connect(('127.0.0.1', port))
                     connection.sendall(f'GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nRange: bytes=0-11\r\n\r\n'.encode())
                     chunks = []
                     while True:

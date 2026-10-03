@@ -1885,7 +1885,7 @@ function isRuntimeSnapshot(value) {
 }
 function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const runtimeKey = "__trailerHeroRuntime";
-    const runtimeVersion = "1.7.1.1";
+    const runtimeVersion = "1.7.2.5";
     const styleId = "trailerhero-style";
     const videoClass = "trailerhero-video";
     const audioClass = "trailerhero-audio";
@@ -1899,6 +1899,54 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const readyClass = "trailerhero-ready";
     const visibleClass = "trailerhero-visible";
     const audioHintId = "trailerhero-audio-hint";
+    function readNativeFooterButton(image) {
+        // Read the already-mounted Steam glyph's public action props. Never
+        // execute webpack factories or invent a controller type/style number.
+        const key = Object.keys(image).find((name) => name.startsWith("__reactFiber$"));
+        for (let fiber = key && image[key], depth = 0; fiber && depth < 16; fiber = fiber.return, depth++) {
+            const button = fiber.memoizedProps?.button;
+            if (Number.isInteger(button) && button >= 0 && button <= 3) return button;
+            const buttons = fiber.memoizedProps?.rgButtons;
+            if (Array.isArray(buttons) && buttons.length === 1 && Number.isInteger(buttons[0]) && buttons[0] >= 0 && buttons[0] <= 3) return buttons[0];
+        }
+        return undefined;
+    }
+    function footerAudioGlyphSource(image, button = readNativeFooterButton(image)) {
+        const source = image?.getAttribute?.("src") || image?.src || "";
+        if (!Number.isInteger(button) || button < 0 || button > 3 || !source.includes("/steaminputglyphs/")) return undefined;
+        // An existing native X action is already exact, including arbitrary
+        // future glyph families and the selected colored/knockout style.
+        if (button === 2) return source;
+        const families = [
+            [/^(.*\/shared_buttons_)(s|e|w|n)(\.svg(?:[?#].*)?)$/, ["s", "e", "w", "n"]],
+            [/^(.*\/ps_(?:color_)?button_)(x|circle|square|triangle)(\.svg(?:[?#].*)?)$/, ["x", "circle", "square", "triangle"]],
+            [/^(.*\/[^/]*button_)(down|right|left|up)(\.svg(?:[?#].*)?)$/, ["down", "right", "left", "up"]],
+            [/^(.*\/[^/]*button_)(a|b|x|y)(\.svg(?:[?#].*)?)$/, ["a", "b", "x", "y"]]
+        ];
+        for (const [pattern, faces] of families) {
+            const match = source.match(pattern);
+            if (!match) continue;
+            const normal = match[2] === faces[button];
+            const reversed = match[2] === faces[button ^ 1];
+            if (!normal && !reversed) return undefined;
+            return match[1] + faces[reversed ? 3 : 2] + match[3];
+        }
+        return undefined;
+    }
+    function findAudioFooterTemplate(footer) {
+        const candidates = [];
+        for (const element of Array.from(footer.children)) {
+            if (!(element instanceof HTMLElement) || element.id === audioHintId) continue;
+            const images = Array.from(element.querySelectorAll("img"));
+            if (images.length !== 1) continue;
+            for (const image of images) {
+                const button = readNativeFooterButton(image);
+                const source = footerAudioGlyphSource(image, button);
+                if (source) candidates.push({ element, image, source, button });
+            }
+        }
+        return candidates.find((item) => item.button === 2) ?? candidates.find((item) => item.button === 0) ?? candidates[0];
+    }
     const themeDeckActivityEvent = "playhub:now-playing-activity";
     const themeDeckActivityGlobal = "__playhubNowPlayingActivity";
     const defaultTrimStartSeconds = 4;
@@ -2903,6 +2951,11 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.scanQueued = false;
             this.launchSuppressedUntil = 0;
             this.trailerAudioEnabled = settings.defaultAudio === "trailer";
+            this.playbackForeground = true;
+            this.nativeSteamForeground = undefined;
+            this.nativeSubscriptions = [];
+            this.runningGameInstances = new Set();
+            this.destroyed = false;
             this.lastSecondaryPressAt = 0;
             this.handleRouteChange = () => {
                 this.launchSuppressedUntil = 0;
@@ -2913,10 +2966,13 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 void this.restoreSteamLogoPosition();
             };
             this.handleVisibilityChange = () => {
-                if (!document.hidden) {
-                    this.queueScan();
-                }
+                this.refreshPlaybackVisibility();
             };
+            this.handleWindowFocus = () => {
+                if (this.runningGameInstances.size === 0 && document.hasFocus()) this.nativeSteamForeground = undefined;
+                this.refreshPlaybackVisibility();
+            };
+            this.handleWindowBlur = () => this.refreshPlaybackVisibility();
             this.handleLaunchIntent = (event) => {
                 if (isTrailerHeroSettingsSurface()) {
                     return;
@@ -2986,12 +3042,84 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             window.addEventListener("popstate", this.handleRouteChange);
             window.addEventListener("beforeunload", this.handleBeforeUnload);
             document.addEventListener("visibilitychange", this.handleVisibilityChange);
-            this.scanTimer = setInterval(() => {
-                if (!document.hidden) {
-                    this.scan();
+            window.addEventListener("focus", this.handleWindowFocus);
+            window.addEventListener("blur", this.handleWindowBlur);
+            this.registerPlaybackVisibility();
+            this.refreshPlaybackVisibility();
+            this.startScanTimer();
+            if (this.playbackForeground) this.scan();
+        }
+        registerPlaybackVisibility() {
+            let context = window;
+            try {
+                if (window.opener?.SteamClient?.System?.UI) context = window.opener;
+            } catch { }
+            const native = context.SteamClient;
+            const subscribe = (owner, method, callback) => {
+                try {
+                    const registration = owner?.[method]?.(callback);
+                    if (registration?.unregister) this.nativeSubscriptions.push(registration);
+                } catch { }
+            };
+            subscribe(native?.System?.UI, "RegisterForFocusChangeEvents", event => {
+                if (this.destroyed) return;
+                const focus = event?.focusedApp;
+                if (!focus || !Number.isFinite(focus.pid) || focus.pid <= 0) return;
+                // Steam's actual library event uses reserved app769, an empty
+                // executable and windowid0. Desktop controller configs use413080.
+                if (focus.appid === 769) {
+                    this.nativeSteamForeground = true;
+                    this.refreshPlaybackVisibility();
+                    return;
                 }
-            }, scanIntervalMs);
-            this.scan();
+                if (!Number.isFinite(focus.windowid) || focus.windowid <= 0 || typeof focus.strExeName !== "string") return;
+                const executable = focus.strExeName.replace(/\\/g, "/").split("/").pop().toLowerCase();
+                this.nativeSteamForeground = executable === "steam.exe" || executable === "steamwebhelper.exe";
+                this.refreshPlaybackVisibility();
+            });
+            subscribe(native?.GameSessions, "RegisterForAppLifetimeNotifications", event => {
+                if (this.destroyed || typeof event?.bRunning !== "boolean") return;
+                const instance = event.nInstanceID ?? event.unAppID ?? "unknown";
+                // Shortcut notifications may have app ID zero. The native lifetime
+                // signal is independent of the controller configuration's app ID.
+                if (event.bRunning) {
+                    this.runningGameInstances.add(instance);
+                    this.nativeSteamForeground = false;
+                    this.setPlaybackForeground(false);
+                }
+                else {
+                    this.runningGameInstances.delete(instance);
+                    this.refreshPlaybackVisibility();
+                }
+            });
+        }
+        refreshPlaybackVisibility() {
+            if (this.destroyed) return;
+            const focused = typeof document.hasFocus !== "function" || document.hasFocus();
+            this.setPlaybackForeground(!document.hidden && focused && this.runningGameInstances.size === 0 && this.nativeSteamForeground !== false);
+        }
+        startScanTimer() {
+            if (this.destroyed || !this.playbackForeground || this.scanTimer) return;
+            this.scanTimer = setInterval(() => this.scan(), scanIntervalMs);
+        }
+        setPlaybackForeground(foreground) {
+            if (this.destroyed || foreground === this.playbackForeground) return;
+            this.playbackForeground = foreground;
+            if (!foreground) {
+                if (this.resumeAudioEnabled === undefined) this.resumeAudioEnabled = this.trailerAudioEnabled;
+                if (this.scanTimer) clearInterval(this.scanTimer);
+                this.scanTimer = undefined;
+                this.cleanupVideo(true);
+            } else {
+                this.startScanTimer();
+                this.queueScan();
+            }
+        }
+        restorePlaybackAudio() {
+            if (this.resumeAudioEnabled === undefined) return;
+            const enabled = this.resumeAudioEnabled;
+            this.resumeAudioEnabled = undefined;
+            this.setTrailerAudioEnabled(enabled);
         }
         update(settings) {
             const previousSettings = this.settings;
@@ -3001,6 +3129,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 this.ensureYouTubePreconnect();
             }
             if (previousSettings.defaultAudio !== settings.defaultAudio) {
+                if (this.resumeAudioEnabled !== undefined) this.resumeAudioEnabled = settings.defaultAudio === "trailer";
                 this.setTrailerAudioEnabled(settings.defaultAudio === "trailer");
             }
             if (!settings.enabled) {
@@ -3066,6 +3195,11 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             };
         }
         destroy() {
+            this.destroyed = true;
+            for (const subscription of this.nativeSubscriptions) {
+                try { subscription.unregister(); } catch { }
+            }
+            this.nativeSubscriptions = [];
             this.requestToken += 1;
             this.observer?.disconnect();
             if (this.scanTimer) {
@@ -3079,6 +3213,8 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             document.removeEventListener("keydown", this.handleLaunchKeyDown, true);
             document.removeEventListener("vgp_onbuttondown", this.handleGamepadButtonDown, true);
             document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+            window.removeEventListener("focus", this.handleWindowFocus);
+            window.removeEventListener("blur", this.handleWindowBlur);
             this.cleanupVideo();
             document.getElementById(styleId)?.remove();
         }
@@ -3093,10 +3229,11 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
         }
         shouldQueueScanForMutation(mutation) {
             const target = mutation.target instanceof HTMLElement ? mutation.target : undefined;
-            if (target?.closest(`.${videoClass}, .${youtubeMaskClass}, .${logoClass}`)) {
+            if (target?.closest(`.${videoClass}, .${youtubeMaskClass}, .${logoClass}, #${audioHintId}`)) {
                 return false;
             }
             if (mutation.type === "attributes" && target) {
+                if (mutation.attributeName === "src" && target.closest("#Footer")) return true;
                 const assetText = getElementAssetText(target).toLowerCase();
                 return (assetText.includes("library_hero") ||
                     assetText.includes("_hero") ||
@@ -3112,6 +3249,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 return;
             }
             this.launchSuppressedUntil = Date.now() + launchSuppressionMs;
+            if (this.resumeAudioEnabled === undefined) this.resumeAudioEnabled = this.trailerAudioEnabled;
             this.cleanupVideo(true);
             this.status = rt("stoppedForLaunch");
         }
@@ -3239,31 +3377,37 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             if (!(footer instanceof HTMLElement)) {
                 return;
             }
+            const native = findAudioFooterTemplate(footer);
             let hint = document.getElementById(audioHintId);
-            if (!hint || hint.parentElement !== footer) {
+            const nativeStyle = native && [native.element.className, native.element.getAttribute("style"),
+                native.image.className, native.image.getAttribute("style"),
+                native.image.parentElement?.className, native.image.parentElement?.getAttribute("style")].join("\n");
+            if (!hint || hint.parentElement !== footer || (native &&
+                (hint.__trailerHeroFooterTemplate !== native.element || hint.__trailerHeroFooterStyle !== nativeStyle))) {
                 hint?.remove();
-                const template = Array.from(footer.children).find((element) => element.querySelector("img[src*='shared_button_a'], img[src*='shared_button_b']")) ??
-                    Array.from(footer.children).find((element) => element.querySelector("img"));
-                if (!(template instanceof HTMLElement)) {
-                    return;
-                }
+                const template = native?.element ?? Array.from(footer.children).find((element) => element.id !== audioHintId && element.querySelector("img"));
+                if (!(template instanceof HTMLElement)) return;
                 hint = template.cloneNode(true);
                 hint.id = audioHintId;
-                const firstAction = Array.from(footer.children).find((element) => element !== hint && element.querySelector("img[src*='shared_button_a']"));
+                hint.__trailerHeroFooterTemplate = native?.element;
+                hint.__trailerHeroFooterStyle = nativeStyle;
+                const firstAction = Array.from(footer.children).find((element) => element !== hint && Array.from(element.querySelectorAll("img")).some((image) => readNativeFooterButton(image) === 0));
                 footer.insertBefore(hint, firstAction ?? null);
             }
             const glyph = hint.querySelector("img");
             if (glyph) {
-                glyph.src = "/steaminputglyphs/shared_button_x.svg";
+                // Unknown native layouts retain a textual hint rather than a
+                // misleading fixed Xbox icon. Refresh when Steam changes style.
+                glyph.hidden = !native;
+                if (native && glyph.getAttribute("src") !== native.source) glyph.src = native.source;
                 glyph.alt = "";
             }
             const label = Array.from(hint.querySelectorAll("div")).find((element) => !element.querySelector("img") && element.children.length === 0);
-            if (label) {
-                label.textContent = rt(this.trailerAudioEnabled ? "themeDeckAudio" : "trailerAudio");
-            }
+            const text = rt(this.trailerAudioEnabled ? "themeDeckAudio" : "trailerAudio");
+            if (label && label.textContent !== text) label.textContent = text;
         }
         queueScan() {
-            if (this.scanQueued) {
+            if (this.destroyed || !this.playbackForeground || this.scanQueued) {
                 return;
             }
             this.scanQueued = true;
@@ -3273,6 +3417,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             }, scanQueueDelayMs);
         }
         async scan() {
+            if (this.destroyed || !this.playbackForeground) return;
             // A failed/unloaded optional screensaver must not suppress game-page
             // playback forever. Only a recently confirmed native state can pause it.
             if (window.__trailerHeroScreensaverActive === true &&
@@ -3835,6 +3980,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 this.currentVideo = video;
                 this.currentMediaAppId = appId;
                 this.currentMediaSignature = options.mediaSignature ?? this.getDesiredMediaSignature(appId);
+                this.restorePlaybackAudio();
                 this.updateAudioHint(true);
                 this.seekPastIntro(video);
                 this.applyLowResCrt(host, video);
@@ -3959,7 +4105,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             const params = new URLSearchParams({
                 autoplay: "1",
                 autohide: "1",
-                mute: "1",
+                mute: this.resumeAudioEnabled === true ? "0" : "1",
                 controls: "0",
                 loop: "1",
                 playlist: videoId,
@@ -4036,6 +4182,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 }, this.settings.delaySeconds * 1000);
             };
             frame.addEventListener("load", () => {
+                if (token !== this.requestToken || !frame.isConnected) return;
                 scheduleQualityRequests();
                 showFrame();
             }, { once: true });
@@ -4044,6 +4191,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.currentFrame = frame;
             this.currentMediaAppId = appId;
             this.currentMediaSignature = options.mediaSignature ?? this.getDesiredMediaSignature(appId);
+            this.restorePlaybackAudio();
             this.updateAudioHint(true);
             this.status = rt("loadingYouTubeTrailer");
         }
@@ -4267,9 +4415,11 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 throw new Error(rt("mediaSourceUnavailable"));
             }
             const masterText = await this.fetchText(masterUrl);
+            if (token !== this.requestToken || !video.isConnected) return;
             const variant = this.selectHlsVariant(masterText, masterUrl);
             video.dataset.trailerheroLowResHint = variant.height > 0 && variant.height <= 540 ? "1" : "";
             const mediaText = await this.fetchText(variant.url);
+            if (token !== this.requestToken || !video.isConnected) return;
             const media = this.parseHlsMediaPlaylist(mediaText, variant.url);
             const codec = variant.codec ?? "avc1.640029";
             const mimeType = `video/mp4; codecs="${codec}"`;
@@ -4316,6 +4466,7 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 throw new Error(rt("mediaSourceUnavailable"));
             }
             const manifestText = await this.fetchText(manifestUrl);
+            if (token !== this.requestToken || !video.isConnected) return;
             const variant = this.selectDashVariant(manifestText, manifestUrl);
             video.dataset.trailerheroLowResHint = variant.height > 0 && variant.height <= 540 ? "1" : "";
             const mimeType = `video/mp4; codecs="${variant.codec}"`;
@@ -4618,6 +4769,18 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             }
             void this.restoreSteamLogoPosition();
             const objectUrl = this.currentVideo?.dataset.trailerheroObjectUrl;
+            for (const media of [this.currentVideo, this.currentAudio]) {
+                try {
+                    media?.remove?.();
+                    media?.pause?.();
+                    media?.removeAttribute?.("src");
+                    media?.load?.();
+                } catch { }
+            }
+            if (this.currentFrame) {
+                this.currentFrame.remove();
+                this.currentFrame.src = "about:blank";
+            }
             this.currentVideo?.remove();
             this.currentAudio?.remove();
             this.currentFrame?.remove();
@@ -7976,8 +8139,30 @@ function installTrailerHeroScreensaver() {
     };
 }
 
+// Playhub import integration: acknowledge only after the controller persisted the selection.
+function installPlayhubTrailerSelection(target, runtime) {
+    const select = (event) => {
+        const data = event?.detail;
+        if (!data || typeof data.requestId !== "string" || data.requestId.length > 128) return;
+        let ok = false;
+        try {
+            if (!Number.isInteger(data.appId) || data.appId <= 0 || data.appId > 0xffffffff || !/^[A-Za-z0-9_-]{11}$/.test(data.videoId || "")) throw Error("invalid_selection");
+            const key = String(data.appId);
+            runtime.updateSettings({
+                youtubeVideos: { ...runtime.settings.youtubeVideos, [key]: data.videoId },
+                preferredSources: { ...runtime.settings.preferredSources, [key]: "youtube" }
+            });
+            ok = runtime.settings.youtubeVideos[key] === data.videoId && runtime.settings.preferredSources[key] === "youtube";
+        } catch { }
+        target.dispatchEvent(new target.CustomEvent("playhub:trailer-selection-result", { detail: { requestId: data.requestId, appId: data.appId, videoId: data.videoId, ok } }));
+    };
+    target.addEventListener("playhub:select-streaming-trailer", select);
+    return () => target.removeEventListener("playhub:select-streaming-trailer", select);
+}
+
 var index = definePlugin(() => {
     controller.mount();
+    const stopPlayhubSelection = installPlayhubTrailerSelection(window, controller);
     // Optional Steam enhancements must never abort the core plugin initializer.
     let stopScreensaver = () => {};
     let contextMenuPatch;
@@ -7997,6 +8182,7 @@ var index = definePlugin(() => {
         content: SP_JSX.jsx(TrailerHeroSurfaceBoundary, { surface: "QAM", resetKey: "qam", children: SP_JSX.jsx(Content, {}) }),
         icon: SP_JSX.jsx(FaFilm, {}),
         onDismount() {
+            stopPlayhubSelection();
             try { stopScreensaver(); } catch (error) { console.debug("TrailerHero screensaver cleanup", error); }
             try { contextMenuPatch?.unpatch?.(); } catch (error) { console.debug("TrailerHero menu cleanup", error); }
             try {

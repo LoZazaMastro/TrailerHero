@@ -1,0 +1,18 @@
+[
+  {
+    "text": "Menu",
+    "parent": "<div class=\"MbyhbxIetM7FOAmCQSW83\"><div class=\"_3Jfd85nK4bKoNf_gCSTX6U\"><img class=\"_223Oc5oDpuWbmKuJQuEYi8\" src=\"/steaminputglyphs/xbox_button_logo.svg\"></div><div class=\"_31JnnWnVv7U4VrSuta5yWO\">Menu</div></div>"
+  },
+  {
+    "text": "Audio trailer",
+    "parent": "<div class=\"MbyhbxIetM7FOAmCQSW83\" id=\"trailerhero-audio-hint\"><div class=\"_3Jfd85nK4bKoNf_gCSTX6U\"><img class=\"_223Oc5oDpuWbmKuJQuEYi8\" src=\"/steaminputglyphs/xbox_button_logo.svg\" hidden=\"\" alt=\"\"></div><div class=\"_31JnnWnVv7U4VrSuta5yWO\">Audio trailer</div></div>"
+  },
+  {
+    "text": "Seleziona",
+    "parent": "<div class=\"MbyhbxIetM7FOAmCQSW83\"><div class=\"_3Jfd85nK4bKoNf_gCSTX6U\"><img class=\"_223Oc5oDpuWbmKuJQuEYi8\" src=\"/steaminputglyphs/shared_buttons_s.svg\"></div><div class=\"_31JnnWnVv7U4VrSuta5yWO\">Seleziona</div></div>"
+  },
+  {
+    "text": "Indietro",
+    "parent": "<div class=\"MbyhbxIetM7FOAmCQSW83\"><div class=\"_3Jfd85nK4bKoNf_gCSTX6U\"><img class=\"_223Oc5oDpuWbmKuJQuEYi8\" src=\"/steaminputglyphs/shared_buttons_e.svg\"></div><div class=\"_31JnnWnVv7U4VrSuta5yWO\">Indietro</div></div>"
+  }
+]
