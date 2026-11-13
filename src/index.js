@@ -1885,7 +1885,7 @@ function isRuntimeSnapshot(value) {
 }
 function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
     const runtimeKey = "__trailerHeroRuntime";
-    const runtimeVersion = "1.7.2.5";
+    const runtimeVersion = "1.7.3.1";
     const styleId = "trailerhero-style";
     const videoClass = "trailerhero-video";
     const audioClass = "trailerhero-audio";
@@ -2955,6 +2955,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             this.nativeSteamForeground = undefined;
             this.nativeSubscriptions = [];
             this.runningGameInstances = new Set();
+            this.gameLifetimeRevision = 0;
+            this.idleGameObservation = undefined;
+            this.lifetimeReconcileTimer = undefined;
             this.destroyed = false;
             this.lastSecondaryPressAt = 0;
             this.handleRouteChange = () => {
@@ -3080,12 +3083,15 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
             subscribe(native?.GameSessions, "RegisterForAppLifetimeNotifications", event => {
                 if (this.destroyed || typeof event?.bRunning !== "boolean") return;
                 const instance = event.nInstanceID ?? event.unAppID ?? "unknown";
+                this.gameLifetimeRevision += 1;
+                this.idleGameObservation = undefined;
                 // Shortcut notifications may have app ID zero. The native lifetime
                 // signal is independent of the controller configuration's app ID.
                 if (event.bRunning) {
                     this.runningGameInstances.add(instance);
                     this.nativeSteamForeground = false;
                     this.setPlaybackForeground(false);
+                    this.scheduleLifetimeReconciliation();
                 }
                 else {
                     this.runningGameInstances.delete(instance);
@@ -3093,10 +3099,65 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
                 }
             });
         }
+        reconcileGameLifetimes(now = Date.now()) {
+            if (this.destroyed || this.runningGameInstances.size === 0 || document.hidden ||
+                document.hasFocus?.() !== true || this.nativeSteamForeground !== true ||
+                now < this.launchSuppressedUntil) {
+                this.idleGameObservation = undefined;
+                return;
+            }
+            let proof;
+            try {
+                for (const context of this.getActivityWindows()) {
+                    const store = context.SteamUIStore;
+                    const main = store?.WindowStore?.GamepadUIMainWindowInstance;
+                    const browser = main?.BrowserWindow ?? main?.m_BrowserWindow;
+                    const route = main?.m_locationPathname;
+                    if (browser?.document !== document || browser.closed === true ||
+                        main.IsMainGamepadUIWindow?.() !== true || main.IsGamepadUIOverlayWindow?.() !== false ||
+                        !/^\/library\/(?:home|app\/\d+)$/.test(route ?? "") ||
+                        main.MenuStore?.GetOpenSideMenu?.() !== 0 ||
+                        !Array.isArray(main.m_ModalManager?.modals) || main.m_ModalManager.modals.length !== 0 ||
+                        store.IsAnyAppRunning?.() !== false) continue;
+                    proof = { store, main, browser, route };
+                    break;
+                }
+            } catch { }
+            if (!proof) {
+                this.idleGameObservation = undefined;
+                return;
+            }
+            const previous = this.idleGameObservation;
+            if (!previous || previous.store !== proof.store || previous.main !== proof.main ||
+                previous.browser !== proof.browser || previous.route !== proof.route ||
+                previous.revision !== this.gameLifetimeRevision || now < previous.at) {
+                this.idleGameObservation = { ...proof, revision: this.gameLifetimeRevision, at: now };
+                return;
+            }
+            if (now - previous.at < 500) return;
+            // Native lifetime-end notifications can be missing for shortcuts.
+            // Two focused, idle Main observations retire stale event bookkeeping.
+            this.runningGameInstances.clear();
+            this.idleGameObservation = undefined;
+        }
+        scheduleLifetimeReconciliation() {
+            if (this.destroyed || this.runningGameInstances.size === 0) {
+                if (this.lifetimeReconcileTimer !== undefined) clearTimeout(this.lifetimeReconcileTimer);
+                this.lifetimeReconcileTimer = undefined;
+                return;
+            }
+            if (this.lifetimeReconcileTimer !== undefined) return;
+            this.lifetimeReconcileTimer = window.setTimeout(() => {
+                this.lifetimeReconcileTimer = undefined;
+                this.refreshPlaybackVisibility();
+            }, 1000);
+        }
         refreshPlaybackVisibility() {
             if (this.destroyed) return;
+            this.reconcileGameLifetimes();
             const focused = typeof document.hasFocus !== "function" || document.hasFocus();
             this.setPlaybackForeground(!document.hidden && focused && this.runningGameInstances.size === 0 && this.nativeSteamForeground !== false);
+            this.scheduleLifetimeReconciliation();
         }
         startScanTimer() {
             if (this.destroyed || !this.playbackForeground || this.scanTimer) return;
@@ -3196,6 +3257,9 @@ function trailerHeroRuntimeFactory(nextSettings, injectedTranslations) {
         }
         destroy() {
             this.destroyed = true;
+            this.idleGameObservation = undefined;
+            if (this.lifetimeReconcileTimer !== undefined) clearTimeout(this.lifetimeReconcileTimer);
+            this.lifetimeReconcileTimer = undefined;
             for (const subscription of this.nativeSubscriptions) {
                 try { subscription.unregister(); } catch { }
             }

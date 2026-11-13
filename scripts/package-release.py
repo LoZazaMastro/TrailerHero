@@ -16,7 +16,7 @@ INSTALLER_FILES = {
     "plugin.json", "package.json", ".playhub-release.json", "main.py",
     "dist/index.js", "ffmpeg.exe", "yt-dlp.exe", "deno.exe", "LICENSE",
     "README.md", "screensaver/index.html", "screensaver/main.js",
-    "CHANGELOG_1.7.2.md",
+    "CHANGELOG_1.7.3.md",
 }
 
 
@@ -24,7 +24,7 @@ def should_include(path: Path, *, installer: bool = False) -> bool:
     relative = path.relative_to(ROOT)
     if set(relative.parts) & EXCLUDED_DIRS or path.suffix.lower() in EXCLUDED_SUFFIXES:
         return False
-    if relative.as_posix() != "CHANGELOG_1.7.2.md" and any(word in relative.name.lower() for word in ("changelog", "handover", "internal", "source_recovery")):
+    if relative.as_posix() != "CHANGELOG_1.7.3.md" and any(word in relative.name.lower() for word in ("changelog", "handover", "internal", "source_recovery")):
         return False
     return not installer or relative.as_posix() in INSTALLER_FILES
 
